@@ -81,67 +81,67 @@
 NMAP found two-port 80 HTTP and 22 SSH. So this box should only contain some web enumeration and then foothold. Opening the web in the browser, we will only get an apache default page. Nothing interesting on that page, and there's no hidden stuff in it. I decided to do some directory brute forcing with gobuster, and since this is a hard difficulty box, I decided to do some subdomain brute-forcing with WFUZZ.</p>
           <img src="/templates/images/internal-thm/apache2.PNG" class="img-fluid">
           <p class="jailp">WFUZZ found nothing, and gobuster found some directory. There is a PHPMyAdmin page, and a directory called WordPress, indicating that this website runs WordPress.</p>
-          <img src="/templates/images/internal-thm/gobuster-wp.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/gobuster-wp.PNG" class="img-fluid">
           <p class="jailp">Visiting the directory confirmed that it's a WordPress site.</p>
-          <img src="/templates/images/internal-thm/wordpress_site.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/wordpress_site.PNG" class="img-fluid">
         </div>
         <div class="section-title">
           <h1 class="jailh1">Foothold</h1>
           <p class="jailp">Knowing it's a WordPress site, I immediately run a wpscan against it.</p>
-          <img src="/templates/images/internal-thm/wpscan_init.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/wpscan_init.PNG" class="img-fluid">
           <p class="jailp">The first scan found nothing interesting, except an outdated theme being use. So I decided to run the second scan to enumerate users.</p>
-          <img src="/templates/images/internal-thm/wpscan_user.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/wpscan_user.PNG" class="img-fluid">
           <p class="jailp">The second scan found one valid user called admin. I've been dealing with Wordpres a lot of time, so I know the next step is probably to brute force the password. While brute-forcing, you can try some default WordPress admin credentials, but none will work.</p>
-          <img src="/templates/images/internal-thm/wpscan_brute.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/wpscan_brute.PNG" class="img-fluid">
           <p class="jailp">Indeed, I managed to find the admin password. Now I can log in to the admin panel, and the first thing I do is edit the index.php template and add a PHP reverse shell inside it. I open a Netcat listener and re-visit the browser.</p>
-          <img src="/templates/images/internal-thm/reverse_shell.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/reverse_shell.PNG" class="img-fluid">
           <p class="jailp">To my surprise, it immediately worked. I thought there would be some twist, etc. Thank god there's none. Anyway, we managed to gain our foothold.</p>
-          <img src="/templates/images/internal-thm/foothold.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/foothold.PNG" class="img-fluid">
           <p class="jailp">Stabilize our shell and let's press on to the next phase.</p>
         </div>
         <div class="section-title">
           <h1 class="jailh1">Horizontal Privilege Escalation</h1>
           <p class="jailp">We got inside as a www-data user, and there's another user called aubreanna. As www-data, we should always enumerate /var/www, and knowing it's a WordPress site, there's a particular file that we should always check. Yep, wp-config.php. I immediately look inside it and managed to find the database credential.</p>
-          <img src="/templates/images/internal-thm/database_creds.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/database_creds.PNG" class="img-fluid">
           <p class="jailp">So, let's enumerate the database.</p>
-          <img src="/templates/images/internal-thm/no_password.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/no_password.PNG" class="img-fluid">
           <p class="jailp">Nothing useful inside the database. Except for the admin credential, which we already know. Meh. I spent quite some time trying to find a way to get the aubreanna user. I check every file in the WordPress directory, but nothing is interesting. We are not allowed to cd to /home/aubreanna. I visit /tmp online to find some useless picture, even trying to do some steganography on it. I run ip addr and realize there must be a docker service running, and I also did a bunch of stuff, until I came across the /opt folder. This is our gold mine. There's a note file that contains aubreanna credentials.</p>
-          <img src="/templates/images/internal-thm/opt_user.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/opt_user.PNG" class="img-fluid">
           <p class="jailp">Let's su to aubreanna and get our user flag.</p>
-          <img src="/templates/images/internal-thm/user_flag.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/user_flag.PNG" class="img-fluid">
         </div>
         <div class="section-title">
           <h1 class="jailh1">Vertical Privilege Escalation</h1>
           <p class="jailp">Inside aubreanna's home directory there's a file called jenkins.txt which give us a clue.</p>
-          <img src="/templates/images/internal-thm/jenkins.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/jenkins.PNG" class="img-fluid">
           <p class="jailp">It told us that there's a Jenkins service running on 172.17.0.2:8080. Checking netstat confirms it.</p>
-          <img src="/templates/images/internal-thm/netstat.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/netstat.PNG" class="img-fluid">
           <p class="jailp">I have dealt with Jenkins before, so I know it's some kind of a DevOps CMS stuff. Remember, I discovered that there's a docker service running? Looking inside the snap folder confirmed it. So the Jenkins service runs inside a docker container which, we can access.</p>
-          <img src="/templates/images/internal-thm/docker.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/docker.PNG" class="img-fluid">
           <p class="jailp">There's also .sudo_as_admin_successful file which tells me that we must get to root from aubreanna.</p>
-          <img src="/templates/images/internal-thm/sudo_as_admin.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/sudo_as_admin.PNG" class="img-fluid">
           <p class="jailp">From experience from another box (Unbaked Pie), I immediately know in my mind what to do. I can use chisel to port forward the Jenkins service, so I can access it locally from my machine. So that's what I do. First, I open a chisel server.</p>
-          <img src="/templates/images/internal-thm/chisel_listen.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/chisel_listen.PNG" class="img-fluid">
           <p class="jailp">Then, I connect the service I want from the target machine.</p>
-          <img src="/templates/images/internal-thm/chisel_connect.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/chisel_connect.PNG" class="img-fluid">
           <p class="jailp">And, Boom! We can access the Jenkins service from our machine.</p>
-          <img src="/templates/images/internal-thm/jenkins_login.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/jenkins_login.PNG" class="img-fluid">
           <p class="jailp">This is where I overthink, and I tripped myself. I enumerate the Jenkins service, I tried to look for hidden things, I tried to brute-force the directory, I tried default credentials, and everything. Based on my googling, I know that Jenkins should have an admin user, but I didn't think that we should brute-force the credentials. So I stepped back. I thought like "This Jenkins service must be a trap or a rabbit hole. Why should we go inside a container when we already have the real machine?". I remembered that we should get the root user from aubreanna because of the .sudo_as_admin_successful file. I decided to step back and enumerate everything again. I check things like Capabilities, SUID, cronjobs, and so much stuff. Aubreanna can't use sudo. I used LinPeas, PSPY, but nothing seems to be fruitful. LinPeas even misleads me even more because of the false-positive results. I'm starting to get tired, and I can't think properly.</p>
           <p class="jailp">.</p>
           <p class="jailp">.</p>
           <p class="jailp">.</p>
           <p class="jailp">Time passes, I decided to step back again and think "If the creator gave that Jenkins service straight at our face, the answer must be there". Then, I realize I haven't done one thing. I forgot to brute-force the login page. Immediately I did that, yep. Lesson learned, do not overthink. Your brain is your rabbit hole when you are overthinking.</p>
-          <img src="/templates/images/internal-thm/hydra.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/hydra.PNG" class="img-fluid">
           <p class="jailp">Finally, we can get inside the Jenkins Service. Like I previously mentioned, I have worked with Jenkins service before, so I know that we can use Jenkins console to gain reverse connection. So, I immediately did that.</p>
-          <img src="/templates/images/internal-thm/jenkins3.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/jenkins3.PNG" class="img-fluid">
           <p class="jailp">And yes, as expected.</p>
-          <img src="/templates/images/internal-thm/jenkins-foothold.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/jenkins-foothold.PNG" class="img-fluid">
           <p class="jailp">Immediately stabilize our shell and continue the enumeration in this docker container. There's lots of stuff and files with secrets on it.</p>
-          <img src="/templates/images/internal-thm/stuff_in_jenkins.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/stuff_in_jenkins.PNG" class="img-fluid">
           <p class="jailp">At this point, I was so tired. I went to a random folder like /tmp and /opt, and to my surprise, the answer is there!</p>
-          <img src="/templates/images/internal-thm/root_password.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/root_password.PNG" class="img-fluid">
           <p class="jailp">I was so happy, and immediately rooted the box.</p>
-          <img src="/templates/images/internal-thm/roottxt.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/roottxt.PNG" class="img-fluid">
         </div>
         <div class="section-title">
           <h1 class="jailh1">Thoughts</h1>
