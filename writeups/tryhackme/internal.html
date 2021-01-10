@@ -79,7 +79,7 @@
           <img src="/templates/images/internal-thm/Nmap.PNG" class="img-fluid">
           <p class="jailp">
 NMAP found two-port 80 HTTP and 22 SSH. So this box should only contain some web enumeration and then foothold. Opening the web in the browser, we will only get an apache default page. Nothing interesting on that page, and there's no hidden stuff in it. I decided to do some directory brute forcing with gobuster, and since this is a hard difficulty box, I decided to do some subdomain brute-forcing with WFUZZ.</p>
-          <img src="/templates/images/internal-thm/apache2.png" class="img-fluid">
+          <img src="/templates/images/internal-thm/apache2.PNG" class="img-fluid">
           <p class="jailp">WFUZZ found nothing, and gobuster found some directory. There is a PHPMyAdmin page, and a directory called WordPress, indicating that this website runs WordPress.</p>
           <img src="/templates/images/internal-thm/gobuster-wp.png" class="img-fluid">
           <p class="jailp">Visiting the directory confirmed that it's a WordPress site.</p>
