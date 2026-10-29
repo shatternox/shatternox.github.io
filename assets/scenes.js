@@ -14,6 +14,15 @@ window.addEventListener('pointermove', (event) => {
   pointer.ty = (event.clientY / window.innerHeight) * 2 - 1;
 }, { passive: true });
 
+// Ease the pointer once per animation frame, however many loops are running.
+let pointerStamp = -1;
+function easePointer(time, dt) {
+  if (time === pointerStamp) return;
+  pointerStamp = time;
+  pointer.x += (pointer.tx - pointer.x) * Math.min(1, dt * 3);
+  pointer.y += (pointer.ty - pointer.y) * Math.min(1, dt * 3);
+}
+
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 const smooth = (a, b, v) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
 const isCompact = () => window.innerWidth < 761;
@@ -73,8 +82,7 @@ function createStage(THREE, host, build) {
     const delta = last ? Math.min((time - last) / 1000, 0.05) : 0.016;
     last = time;
     elapsed += delta;
-    pointer.x += (pointer.tx - pointer.x) * Math.min(1, delta * 3);
-    pointer.y += (pointer.ty - pointer.y) * Math.min(1, delta * 3);
+    easePointer(time, delta);
     api.update?.(delta, elapsed, view);
     renderer.render(scene, camera);
     frame = requestAnimationFrame(loop);
@@ -545,6 +553,12 @@ async function start() {
     THREE = await import('./vendor/three/three.module.min.js');
   } catch {
     return; // CSS art and the 2D hero canvas remain as the fallback.
+  }
+  try {
+    const { startMorph } = await import('./morph.js');
+    startMorph(THREE, { reducedMotion, pointer, isCompact, easePointer });
+  } catch (error) {
+    console.warn('Morph field failed', error);
   }
   const jobs = [
     ['.hero', heroScene],

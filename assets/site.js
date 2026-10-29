@@ -106,6 +106,11 @@
     updateViewport();
 
     const reveals = [...document.querySelectorAll('.reveal')];
+    // Stagger order for items revealed inside each section (CSS reads --i).
+    reveals.forEach((section) => {
+      section.querySelectorAll('.index-card, .award, .cert-highlight, .community-card, .link-card, .principle')
+        .forEach((item, index) => item.style.setProperty('--i', String(Math.min(index, 8))));
+    });
     if (!reducedMotion.matches && 'IntersectionObserver' in window) {
       const revealObserver = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
@@ -119,6 +124,41 @@
     } else {
       reveals.forEach((item) => item.classList.add('is-visible'));
     }
+
+    // Experience timeline: highlight the role at the reading line and mirror
+    // its dates in the sticky aside. The rail fill tracks progress through it.
+    const jobs = [...document.querySelectorAll('.job')];
+    const jobsList = document.querySelector('.jobs');
+    const railFill = document.querySelector('.jobs-rail i');
+    const nowYear = document.querySelector('.exp-year');
+    const nowRole = document.querySelector('.exp-role');
+    let currentJob = null;
+    function updateJobs() {
+      if (!jobs.length || !jobsList) return;
+      const line = window.innerHeight * 0.45;
+      let next = jobs[0];
+      for (const job of jobs) {
+        if (job.getBoundingClientRect().top <= line) next = job;
+      }
+      const box = jobsList.getBoundingClientRect();
+      if (railFill) {
+        const progress = Math.min(1, Math.max(0, (line - box.top) / Math.max(1, box.height)));
+        railFill.style.transform = `scaleY(${progress})`;
+      }
+      if (next === currentJob) return;
+      currentJob?.classList.remove('is-current');
+      next.classList.add('is-current');
+      currentJob = next;
+      const date = next.querySelector('.job-date')?.textContent.trim() || '';
+      if (nowYear) nowYear.textContent = date;
+      if (nowRole) nowRole.textContent = `${next.querySelector('h3')?.textContent.trim() || ''}, ${next.querySelector('.company')?.textContent.trim() || ''}`;
+    }
+    let jobsFrame = 0;
+    const scheduleJobs = () => { if (!jobsFrame) jobsFrame = requestAnimationFrame(() => { jobsFrame = 0; updateJobs(); }); };
+    window.addEventListener('scroll', scheduleJobs, { passive: true });
+    window.addEventListener('resize', scheduleJobs, { passive: true });
+    document.addEventListener('toggle', scheduleJobs, true);
+    updateJobs();
 
     // Pointer movement only shifts the light; card movement belongs to CSS.
     const cards = [...document.querySelectorAll('.index-card')];

@@ -309,3 +309,160 @@ footer strong { color: var(--ink); font: 500 .9rem var(--display); }
 .visual-break > .wrap, .contact > .wrap { position: relative; z-index: 1; }
 .contact > .gl-stage { -webkit-mask-image: linear-gradient(to top, #000 0%, #000 30%, transparent 72%); mask-image: linear-gradient(to top, #000 0%, #000 30%, transparent 72%); }
 @media (prefers-reduced-motion: reduce) { .gl-stage { display: none; } }
+
+
+/* ==========================================================================
+   Redesign layer. Same content and IA; stronger composition per section,
+   one page-wide morphing particle field (assets/morph.js) behind it.
+   ========================================================================== */
+
+.nowrap { white-space: nowrap; }
+
+/* The morph canvas is fixed behind everything below the hero. Sections keep
+   their own tint but turn translucent so the field reads through them. */
+.gl-morph { position: fixed; inset: 0; z-index: 0; width: 100vw; height: 100vh; pointer-events: none; opacity: 0; transition: opacity .6s ease; }
+main { position: relative; z-index: 1; }
+footer { position: relative; z-index: 1; }
+html[data-morph="on"] #profile,
+html[data-morph="on"] .public-index,
+html[data-morph="on"] .credentials { background: rgb(11 16 13 / 72%); }
+html[data-morph="on"] .experience,
+html[data-morph="on"] .contact { background-color: rgb(6 10 8 / 70%); }
+html[data-morph="on"] .competitions,
+html[data-morph="on"] .community { background: rgb(8 12 10 / 70%); }
+html[data-morph="on"] .links { background: linear-gradient(90deg, rgb(5 10 7 / 92%), rgb(5 10 7 / 55%)); }
+
+/* Section intros: text left, a reserved stage on the right where the particle
+   field forms the section's shape. Without WebGL the stage is a quiet ring. */
+.section-intro { grid-template-columns: minmax(0, 1fr) minmax(220px, .62fr); align-items: center; gap: clamp(28px, 5vw, 72px); }
+.intro-text > .eyebrow { margin-bottom: 22px; color: var(--acid); }
+.intro-text h2 { max-width: 760px; margin: 0; font: 500 clamp(2.5rem, 5vw, 4.5rem)/1.04 var(--display); letter-spacing: -.058em; }
+.intro-text h2 em { font: inherit; color: var(--acid); }
+.intro-text p { max-width: 54ch; margin: 22px 0 0; color: var(--muted); line-height: 1.75; font-size: 1rem; }
+.gl-anchor { position: relative; justify-self: center; width: min(100%, 340px); aspect-ratio: 1; pointer-events: none; }
+.gl-anchor::before { content: ''; position: absolute; inset: 18%; border: 1px solid rgb(97 217 155 / 24%); border-radius: 50%; transition: opacity .8s; }
+.gl-anchor::after { content: ''; position: absolute; inset: 32%; border: 1px dashed rgb(97 217 155 / 18%); border-radius: 50%; transition: opacity .8s; }
+html[data-morph="on"] .gl-anchor::before, html[data-morph="on"] .gl-anchor::after { opacity: 0; }
+
+/* Profile: larger statement, principles as an indexed list with a hover rule. */
+.about-copy { font-size: clamp(1.3rem, 2.3vw, 1.85rem); line-height: 1.5; letter-spacing: -.03em; }
+.principle { position: relative; padding: 26px 0 26px 4px; font-size: 1rem; transition: padding .35s cubic-bezier(.16, 1, .3, 1), color .3s; }
+.principle::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: var(--acid); transform: scaleX(0); transform-origin: left; transition: transform .5s cubic-bezier(.16, 1, .3, 1); }
+.principle:hover { padding-left: 14px; color: var(--acid); }
+.principle:hover::after { transform: scaleX(1); }
+.principle b { font: 500 1.15rem/1.3 var(--display); letter-spacing: -.02em; }
+
+/* Experience: sticky aside with live "current role", timeline rail on jobs. */
+.exp-layout { display: grid; grid-template-columns: minmax(260px, .78fr) minmax(0, 1.5fr); gap: clamp(36px, 6vw, 96px); align-items: start; }
+.exp-aside { position: sticky; top: calc(var(--header-height) + 36px); display: grid; gap: 28px; }
+.exp-aside .section-intro { display: block; margin: 0; }
+.exp-aside .intro-text h2 { font-size: clamp(2.4rem, 4.2vw, 3.9rem); }
+.exp-now { display: grid; gap: 8px; padding: 18px 0 0; border-top: 1px solid var(--line); }
+.exp-year { font: 600 clamp(1.6rem, 2.6vw, 2.3rem)/1.1 var(--display); letter-spacing: -.04em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.exp-role { min-height: 2.6em; color: var(--muted); font-size: .86rem; line-height: 1.5; }
+.gl-anchor-tall { justify-self: start; width: min(100%, 260px); aspect-ratio: 1 / 1.1; }
+.jobs { position: relative; padding-left: 34px; border-top: 0; }
+.jobs-rail { position: absolute; left: 6px; top: 8px; bottom: 8px; width: 1px; background: var(--line); }
+.jobs-rail i { position: absolute; inset: 0; background: linear-gradient(var(--acid), var(--accent-strong)); transform: scaleY(0); transform-origin: top; }
+.job { position: relative; grid-template-columns: 1fr; gap: 18px; padding: 30px 0 34px; border-bottom: 1px solid rgb(38 55 45 / 60%); }
+.job::before { content: ''; position: absolute; left: -33px; top: 40px; width: 11px; height: 11px; border: 1px solid #3b6049; border-radius: 50%; background: var(--dark); transition: background .3s, border-color .3s, box-shadow .3s; }
+.job.is-current::before { background: var(--acid); border-color: var(--acid); box-shadow: 0 0 0 5px rgb(97 217 155 / 12%); }
+.job:hover, .job:focus-within { background: none; }
+.job-meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 24px; align-items: baseline; }
+.job-meta h3 { grid-column: 1; max-width: none; margin-bottom: 8px; transition: color .3s; }
+.job-meta .company { grid-column: 1; }
+.job-meta .job-date { grid-column: 2; grid-row: 1; margin: 0; white-space: nowrap; }
+.job.is-current .job-meta h3 { color: #fff; }
+.job:not(.is-current) .job-meta h3 { color: #c9d6cd; }
+
+/* Visual break: let the particle grid carry it; quieter photo. */
+.visual-break { min-height: clamp(320px, 38vw, 480px); }
+
+/* Public index: editorial grid with a real image in the feature card. */
+.index-card { position: relative; overflow: hidden; isolation: isolate; }
+.index-card::before { content: ''; position: absolute; inset: 0; z-index: -1; background: radial-gradient(420px circle at var(--spot-x) var(--spot-y), rgb(97 217 155 / 9%), transparent 60%); opacity: 0; transition: opacity .3s; }
+.index-card:hover::before { opacity: 1; }
+.index-feature::after { min-height: 150px; border: 1px solid #294b36; border-radius: 4px; background: linear-gradient(180deg, transparent, rgb(5 10 7 / 55%)), url('ai-security-texture.webp') center / cover; }
+.index-play { background-image: radial-gradient(circle at 85% 15%, rgb(214 220 120 / 10%), transparent 45%); }
+.index-play .mono { color: #c9d77a; }
+.index-link { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Achievements: rank becomes the headline number of each card. */
+.award { position: relative; overflow: hidden; grid-template-columns: minmax(0, 1fr) auto; padding: 34px 30px 30px; transition: border-color .3s, transform .35s cubic-bezier(.16, 1, .3, 1); }
+.award:hover { border-color: #4c8060; transform: translateY(-3px); }
+.award-number { position: absolute; right: 22px; bottom: -18px; padding: 0; color: rgb(97 217 155 / 7%); font: 600 7rem/1 var(--display); letter-spacing: -.06em; pointer-events: none; }
+.award-rank { max-width: 14ch; font: 600 clamp(1.8rem, 3vw, 2.5rem)/1.05 var(--display); letter-spacing: -.05em; text-transform: none; color: var(--acid); }
+.award h3 { margin-top: 18px; }
+.award time { align-self: start; padding: 6px 10px; border: 1px solid var(--line); border-radius: 4px; }
+
+/* Certifications: OSCP leads, the rest follow in a tighter grid. */
+.credential-art { min-height: clamp(120px, 12vw, 160px); }
+.cert-highlights { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cert-highlight { position: relative; transition: background .3s; }
+.cert-highlight:hover { background: #111d15; }
+.cert-highlight:first-child { grid-column: span 2; grid-row: span 2; display: flex; flex-direction: column; justify-content: space-between; background: linear-gradient(160deg, #123021, var(--surface) 70%); }
+.cert-highlight:first-child h3 { font-size: clamp(3.4rem, 6vw, 5.4rem); margin-top: auto; }
+.cert-highlight h3 { margin-top: 22px; font-size: clamp(1.5rem, 2.2vw, 2rem); }
+
+/* Community: alternate card weights; skills become chips. */
+.community-card { position: relative; transition: border-color .3s, background .3s; }
+.community-card:hover { border-color: #4c8060; background: #111b15; }
+.community-card > .mono { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 1px solid #345340; border-radius: 50%; font-size: .62rem; }
+.skill-grid p { line-height: 2.1; }
+
+/* Links and contact. */
+.link-card { position: relative; overflow: hidden; }
+.link-card::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--acid); transform: scaleX(0); transform-origin: left; transition: transform .5s cubic-bezier(.16, 1, .3, 1); }
+.link-card:hover::after { transform: scaleX(1); }
+
+/* Scroll-linked reveal: children rise in sequence once a section enters. */
+.reveal.is-visible .index-card,
+.reveal.is-visible .award,
+.reveal.is-visible .cert-highlight,
+.reveal.is-visible .community-card,
+.reveal.is-visible .link-card,
+.reveal.is-visible .principle { animation: item-rise .7s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(var(--i, 0) * 70ms + 120ms); }
+@keyframes item-rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 1080px) {
+  .exp-layout { grid-template-columns: 1fr; }
+  .exp-aside { position: static; grid-template-columns: minmax(0, 1fr) 220px; align-items: end; }
+  .exp-aside .section-intro { grid-column: 1; }
+  .exp-now { grid-column: 1; }
+  .gl-anchor-tall { grid-column: 2; grid-row: 1 / span 2; width: 220px; }
+  .cert-highlights { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cert-highlight:first-child { grid-column: span 3; grid-row: auto; }
+}
+
+@media (max-width: 760px) {
+  .section-intro { grid-template-columns: minmax(0, 1fr) 110px; gap: 12px; align-items: start; }
+  .intro-text h2 { font-size: clamp(2.1rem, 8vw, 3.2rem); line-height: 1.08; }
+  .intro-text p { font-size: .94rem; }
+  .gl-anchor { width: 110px; margin-top: 34px; }
+  .exp-aside { grid-template-columns: 1fr; }
+  .exp-aside .gl-anchor-tall { display: none; }
+  .exp-now { display: none; }
+  .jobs { padding-left: 26px; }
+  .job::before { left: -25px; }
+  .jobs-rail { left: 0; }
+  .job-meta { grid-template-columns: 1fr; }
+  .job-meta .job-date { grid-column: 1; grid-row: auto; margin-top: 8px; }
+  .award { padding: 26px 22px; }
+  .award-number { font-size: 5rem; }
+  .cert-highlights { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cert-highlight:first-child { grid-column: span 2; }
+}
+
+@media (max-width: 360px) {
+  .section-intro { grid-template-columns: 1fr; }
+  .gl-anchor { display: none; }
+  .cert-highlights { grid-template-columns: 1fr; }
+  .cert-highlight:first-child { grid-column: auto; }
+  .award { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gl-morph { display: none; }
+  .principle:hover { padding-left: 4px; }
+  .award:hover { transform: none; }
+}
