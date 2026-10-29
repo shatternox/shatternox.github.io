@@ -202,7 +202,7 @@
     let heroVisible = initialBounds.bottom > 0 && initialBounds.top < window.innerHeight;
 
     function canAnimate() {
-      return heroVisible && !document.hidden && !reducedMotion.matches && width > 0 && height > 0;
+      return heroVisible && !document.hidden && !reducedMotion.matches && hero.dataset.gl !== 'on' && width > 0 && height > 0;
     }
 
     function stopCanvas() {
@@ -317,6 +317,7 @@
     window.addEventListener('pagehide', stopCanvas);
     window.addEventListener('pageshow', syncCanvas);
     onMediaChange(reducedMotion, syncCanvas);
+    document.addEventListener('hero-gl', syncCanvas);
     sizeCanvas();
   }
 
