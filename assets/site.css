@@ -39,7 +39,7 @@ p { text-wrap: pretty; }
 header { position: fixed; inset: 0 0 auto; z-index: 20; background: rgb(8 12 10 / 92%); border-bottom: 1px solid transparent; backdrop-filter: blur(18px); transition: border-color .2s; }
 header.scrolled { border-color: var(--line); }
 nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; height: var(--header-height); }
-.brand { flex-shrink: 0; font: 700 .95rem var(--display); letter-spacing: -.045em; }
+.brand { flex-shrink: 0; font: 700 .95rem var(--display); letter-spacing: -.01em; }
 .brand b { display: inline-block; width: 7px; height: 7px; margin-left: 8px; background: var(--accent-strong); transform: rotate(45deg); }
 nav ul { display: flex; align-items: center; gap: clamp(14px, 1.65vw, 24px); margin: 0; padding: 0; list-style: none; font-size: .78rem; color: var(--muted); }
 nav li a { display: inline-flex; align-items: center; min-height: 44px; border-bottom: 1px solid transparent; transition: color .2s, border-color .2s; }
@@ -465,4 +465,21 @@ html[data-morph="on"] .gl-anchor::before, html[data-morph="on"] .gl-anchor::afte
   .gl-morph { display: none; }
   .principle:hover { padding-left: 4px; }
   .award:hover { transform: none; }
+}
+
+
+/* Rough-edge fixes. */
+.job-title-long { font-size: clamp(1.05rem, 1.6vw, 1.3rem) !important; line-height: 1.4 !important; max-width: 44ch; }
+.job-note { grid-column: 1 / -1; margin-top: 8px; color: var(--muted); font: .62rem/1.6 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.job-note::before { content: '\2194'; margin-right: 8px; color: var(--acid); }
+.link-card { align-items: stretch; }
+.link-card > div { display: flex; flex-direction: column; justify-content: space-between; min-height: 125px; }
+.link-card > .arrow { align-self: end; }
+.noxguard-card img { margin: 18px 0 10px; }
+@media (max-width: 760px) {
+  .cert-highlight h3 { font-size: 1.45rem; letter-spacing: -.03em; }
+}
+@media (max-width: 420px) {
+  .cert-highlights { grid-template-columns: 1fr; }
+  .cert-highlight:first-child { grid-column: auto; }
 }

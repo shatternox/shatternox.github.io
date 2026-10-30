@@ -5,7 +5,7 @@
 // under reduced motion, and the page is complete without it.
 
 const SHAPES = ['sphere', 'helix', 'constellation', 'knot', 'shield', 'clusters', 'rings'];
-const FLAT = new Set(['shield', 'knot', 'clusters', 'constellation']);
+const FLAT = new Set(['shield', 'knot', 'clusters', 'constellation', 'helix']);
 
 function rng(seed) {
   let t = seed >>> 0;
@@ -42,21 +42,22 @@ function buildShape(name, count) {
         break;
       }
       case 'helix': {
-        // Double helix with rungs: a career built step by step.
-        // Two strands plus evenly spaced base-pair rungs.
-        const turns = 4.5 * Math.PI;
-        const strand = i % 5;
-        const u = rand();
-        if (strand < 3) {
-          const a = u * turns;
-          const off = (strand % 2) * Math.PI;
-          const j = (rand() - 0.5) * 0.05;
-          set(i, Math.cos(a + off) * 0.7 + j, (u - 0.5) * 2.6, Math.sin(a + off) * 0.7 + j);
+        // Two strands joined by solid base-pair bars.
+        const turns = 2.6 * Math.PI;
+        const H = 2.4, Rh = 0.58;
+        const pick = rand();
+        if (pick < 0.42) {
+          const u = rand();
+          const a = u * turns + (i % 2) * Math.PI;
+          const j = (rand() - 0.5) * 0.04;
+          set(i, Math.cos(a) * Rh + j, (u - 0.5) * H, Math.sin(a) * Rh + j);
         } else {
-          const k = Math.round(u * 22) / 22;
-          const ak = k * turns;
+          const rungs = 11;
+          const k = (Math.floor(rand() * rungs) + 0.5) / rungs;
+          const a = k * turns;
           const s = rand() * 2 - 1;
-          set(i, Math.cos(ak) * 0.7 * s, (k - 0.5) * 2.6, Math.sin(ak) * 0.7 * s);
+          const j = (rand() - 0.5) * 0.025;
+          set(i, Math.cos(a) * Rh * s, (k - 0.5) * H + j, Math.sin(a) * Rh * s * 0.35);
         }
         break;
       }
@@ -177,7 +178,9 @@ export function startMorph(THREE, { reducedMotion, pointer, isCompact, easePoint
   document.body.prepend(canvas);
   document.documentElement.dataset.morph = 'on';
 
-  const count = isCompact() ? 6000 : 11000;
+  // Particle budget scales with the device; a frame-time probe can halve it later.
+  const weak = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+  const count = Math.round((isCompact() ? 6000 : 11000) * (weak ? 0.55 : 1));
   const shapeData = anchors.map((el) => buildShape(el.dataset.shape, count));
   const seeds = new Float32Array(count);
   const seedRand = rng(99);
@@ -212,16 +215,16 @@ export function startMorph(THREE, { reducedMotion, pointer, isCompact, easePoint
       }
       void main() {
         // Stagger each particle so the transition ripples instead of snapping.
-        float local = smoothstep(aSeed * 0.45, aSeed * 0.45 + 0.55, uMix);
+        float local = smoothstep(aSeed * 0.25, aSeed * 0.25 + 0.75, uMix);
         vec3 p = mix(aFrom, aTo, local);
         float lift = sin(local * 3.14159);
-        p += noise3(aSeed, uTime) * (0.025 + lift * 0.35 + uScatter * 0.5);
+        p += noise3(aSeed, uTime) * (0.008 + lift * 0.16 + uScatter * 0.5);
         p *= uScale;
         vec4 mv = modelViewMatrix * vec4(p, 1.0);
         gl_Position = projectionMatrix * mv;
         vDepth = clamp((mv.z + 10.0) / (2.0 * uScale) + 0.5, 0.0, 1.0);
         vSeed = aSeed;
-        gl_PointSize = uPixel * (1.5 + aSeed * 1.3) * (10.0 / -mv.z) * mix(0.75, 1.3, vDepth);
+        gl_PointSize = uPixel * (1.8 + aSeed * 1.2) * (10.0 / -mv.z) * mix(0.8, 1.3, vDepth);
       }`,
     fragmentShader: /* glsl */`
       uniform float uAlpha;
@@ -230,10 +233,10 @@ export function startMorph(THREE, { reducedMotion, pointer, isCompact, easePoint
         float d = length(gl_PointCoord - 0.5);
         if (d > 0.5) discard;
         float a = smoothstep(0.5, 0.0, d);
-        vec3 base = vec3(0.24, 0.84, 0.54);
+        vec3 base = vec3(0.3, 0.92, 0.6);
         vec3 hot = vec3(0.78, 1.0, 0.88);
         vec3 col = mix(base, hot, step(0.93, vSeed) * 0.8);
-        gl_FragColor = vec4(col * mix(0.7, 1.15, vDepth), a * uAlpha * mix(0.18, 1.0, vDepth));
+        gl_FragColor = vec4(col * mix(0.75, 1.2, vDepth), a * a * uAlpha * mix(0.3, 1.0, vDepth));
       }`
   });
   const points = new THREE.Points(geometry, material);
@@ -246,10 +249,11 @@ export function startMorph(THREE, { reducedMotion, pointer, isCompact, easePoint
   camera.position.set(0, 0, 10);
 
   let width = 1, height = 1, halfH = 1, halfW = 1;
+  let degraded = false, probeTime = 0, probeFrames = 0;
   function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+    renderer.setPixelRatio(degraded ? 1 : Math.min(window.devicePixelRatio || 1, 1.6));
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
@@ -285,7 +289,7 @@ export function startMorph(THREE, { reducedMotion, pointer, isCompact, easePoint
     const f = fromAttr.array, t = toAttr.array;
     const m = mixValue;
     for (let i = 0; i < count; i++) {
-      const local = Math.min(1, Math.max(0, (m - seeds[i] * 0.45) / 0.55));
+      const local = Math.min(1, Math.max(0, (m - seeds[i] * 0.25) / 0.75));
       const e = local * local * (3 - 2 * local);
       for (let k = 0; k < 3; k++) f[i * 3 + k] = f[i * 3 + k] + (t[i * 3 + k] - f[i * 3 + k]) * e;
     }
@@ -307,34 +311,52 @@ export function startMorph(THREE, { reducedMotion, pointer, isCompact, easePoint
     elapsed += dt;
     easePointer(time, dt);
 
-    // Choose the anchor nearest the viewport centre that is on screen.
-    let best = -1, bestDist = Infinity, frameBest = null;
+    // Pick the anchor nearest the viewport centre. The cloud is pinned to it
+    // (it scrolls with its section) and fades out as the anchor leaves the
+    // middle of the screen, so it never floats over dividers or cards.
+    let best = -1, bestDist = Infinity;
     const frames = anchors.map(anchorFrame);
     frames.forEach((fr, i) => {
-      if (!fr.visible) return;
-      const onScreen = fr.bottom > -height * 0.2 && fr.top < height * 1.2;
-      if (onScreen && fr.dist < bestDist) { best = i; bestDist = fr.dist; frameBest = fr; }
+      if (fr.visible && fr.bottom > 0 && fr.top < height && fr.dist < bestDist) { best = i; bestDist = fr.dist; }
     });
     const heroBox = hero ? hero.getBoundingClientRect() : null;
     const heroCover = heroBox ? Math.min(1, Math.max(0, heroBox.bottom / height)) : 0;
 
+    let switched = false;
     if (best >= 0) {
+      switched = best !== toIndex;
       retarget(best);
       const fr = frames[toIndex];
       target.set(fr.x, fr.y, 0);
       targetScale = Math.max(0.6, fr.s);
-      const nearness = 1 - Math.min(1, fr.dist / (height * 0.85));
-      targetAlpha = (0.45 + nearness * 0.75) * fr.alpha * (1 - heroCover);
+      const centred = 1 - Math.min(1, Math.max(0, (fr.dist - height * 0.22) / (height * 0.3)));
+      targetAlpha = centred * 1.25 * fr.alpha * (1 - heroCover);
     } else {
       targetAlpha = 0;
     }
 
-    const k = 1 - Math.exp(-dt * 3.2);
+    // Snap position when the cloud is invisible (switching sections), track
+    // tightly otherwise so it reads as part of the page, not a floating cursor.
+    if (switched && alpha < 0.08) { pos.copy(target); scale = targetScale; }
+    const k = 1 - Math.exp(-dt * 16);
     pos.lerp(target, k);
     scale += (targetScale - scale) * k;
-    alpha += (targetAlpha - alpha) * (1 - Math.exp(-dt * 4));
-    mixValue = Math.min(mixTarget, mixValue + dt * 0.75);
+    alpha += (targetAlpha - alpha) * (1 - Math.exp(-dt * 6));
+    mixValue = Math.min(mixTarget, mixValue + dt * 1.4);
     spin += dt * 0.12;
+
+    // Frame-time probe: on slow devices, draw half the particles at 1x DPR.
+    if (!degraded && alpha > 0.1) {
+      probeTime += dt; probeFrames++;
+      if (probeFrames === 90) {
+        if (probeTime / probeFrames > 0.026) {
+          degraded = true;
+          geometry.setDrawRange(0, Math.floor(count / 2));
+          renderer.setPixelRatio(1);
+          renderer.setSize(width, height, false);
+        }
+      }
+    }
 
     group.position.copy(pos);
     // Flat emblems sway instead of spinning so their silhouette stays legible.
