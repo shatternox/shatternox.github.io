@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101412">
+  <meta name="description" content="Solve a 3×3 Rubik’s Cube with a seven-stage beginner guide, interactive 3D turns, and a route from the exact colors of your cube.">
+  <link rel="canonical" href="https://shatternox.github.io/rubik/">
+  <link rel="icon" href="../assets/favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="rubik.css">
+  <script type="module" src="app.mjs"></script>
+  <title>Solve a 3×3 Rubik’s Cube | Ardian Danny</title>
+</head>
+<body>
+  <a class="skip" href="#workbench">Skip to the guide</a>
+  <header class="site-head shell">
+    <a class="brand" href="../">ARDIAN DANNY <i></i></a>
+    <button class="quiet" id="open-notation">Turn notation <span aria-hidden="true">↗</span></button>
+  </header>
+  <main class="shell">
+    <section class="intro" aria-labelledby="title">
+      <h1 id="title">Solve a Rubik’s <em>Cube.</em></h1>
+      <div class="intro-side">
+        <p>Learn the seven stages in 3D. Use a practice case or follow the route for your own cube.</p>
+        <div class="mode-controls" aria-label="Choose how to start">
+          <button id="practice" class="primary">Explore the cases</button>
+          <button id="open-editor" class="secondary">Enter my cube <span aria-hidden="true">↗</span></button>
+        </div>
+      </div>
+    </section>
+    <noscript><p class="notice">Enable JavaScript to use the cube and the step-by-step guide.</p></noscript>
+    <section class="workbench" id="workbench" aria-label="Interactive cube guide">
+      <aside class="roadmap">
+        <div class="section-label">Solve stages</div>
+        <ol id="stages"></ol>
+        <div class="roadmap-foot">
+          <button class="text-button" id="new-scramble">Practice a new scramble <span aria-hidden="true">↻</span></button>
+        </div>
+      </aside>
+      <section class="player" aria-label="Cube animation">
+        <div class="canvas-wrap" id="viewer">
+          <div class="viewport-header">
+            <span class="mode-label" id="mode-label"><i></i> Case demonstration</span>
+            <button class="view-button" id="orbit" title="Reset the 3D view">Reset view <span aria-hidden="true">↗</span></button>
+          </div>
+          <div class="canvas" id="canvas"></div>
+          <div class="fallback" id="fallback" hidden></div>
+          <div class="viewport-footer">
+            <span id="drag-hint">Drag to orbit</span>
+            <div id="cameras" class="camera-controls" aria-label="Look straight at a face"></div>
+          </div>
+          <div id="direction-indicator" class="direction-indicator" aria-hidden="true" hidden></div>
+        </div>
+        <div class="player-body">
+          <div class="holding" id="holding"></div>
+          <div class="turn-instruction">
+            <div id="move-symbol" class="move-symbol">–</div>
+            <div><strong id="move-title">Loading the cube</strong><p id="move-detail" aria-live="polite"></p></div>
+            <button id="face-view" class="secondary small">Look at face</button>
+          </div>
+          <div class="move-controls">
+            <button id="previous-move" class="secondary small" aria-label="Previous turn" title="Previous turn">←</button>
+            <button id="play" class="secondary small" aria-label="Play all turns">Play</button>
+            <button id="next-move" class="primary small">Next turn <span aria-hidden="true">→</span></button>
+            <button id="advance" class="primary small" hidden></button>
+            <label for="speed">Speed <select id="speed"><option value="750">Slow</option><option value="420" selected>Normal</option><option value="225">Fast</option></select></label>
+          </div>
+          <div class="formula-header"><span>Formula</span><span id="move-count"></span></div>
+          <div id="formula" class="formula" aria-label="Turn sequence"></div>
+          <details class="snapshots" id="snapshots">
+            <summary>Compare the six faces</summary>
+            <div id="snapshot-content"></div>
+          </details>
+        </div>
+      </section>
+      <aside class="lesson" aria-labelledby="lesson-title">
+        <div id="lesson-content"></div>
+      </aside>
+    </section>
+    <section id="case-section" class="case-section" aria-labelledby="case-title">
+      <div class="case-header">
+        <div><h2 id="case-title">Pick a case</h2><p>Choose a similar example to learn the pattern. For turns that match your exact position, use <strong>Enter my cube</strong>.</p></div>
+        <span id="case-stage" class="section-label"></span>
+      </div>
+      <div id="cases" class="cases"></div>
+    </section>
+  </main>
+  <footer class="site-footer shell">
+    <a href="../">← Back to shatternox.github.io</a>
+    <div><a href="https://www.youtube.com/watch?v=-Wxrs4MbiFc&amp;t=636s">Kelvin Kurniawan’s tutorial</a><a href="https://rubiks.com/solve-guide">Rubik’s solve guide</a></div>
+  </footer>
+  <dialog id="notation" class="dialog">
+    <div class="dialog-head"><h2>Read the turns</h2><form method="dialog"><button class="quiet" aria-label="Close notation">✕</button></form></div>
+    <p>Hold the whole cube steady. Each letter tells you which <strong>outer layer</strong> to turn. Clockwise always means as if you were looking directly at that face, even for the back or bottom.</p>
+    <div class="notation-grid">
+      <div><code>U</code> Top</div><div><code>R</code> Right</div><div><code>F</code> Front</div>
+      <div><code>D</code> Bottom</div><div><code>L</code> Left</div><div><code>B</code> Back</div>
+    </div>
+    <p><code>R</code> is a 90° clockwise turn. <code>R′</code> is a 90° counterclockwise turn. <code>R2</code> is 180° in either direction.</p>
+    <div id="notation-demos" class="mode-controls">
+      <button class="secondary" data-turn="R">Try R</button>
+      <button class="secondary" data-turn="R'">Try R′</button>
+      <button class="secondary" data-turn="R2">Try R2</button>
+    </div>
+    <p class="muted">The camera can move without changing what U, R, or F mean. The center colors under the cube tell you how to hold your physical cube.</p>
+  </dialog>
+  <dialog class="dialog editor-dialog" id="editor">
+    <div class="dialog-head"><div><h2>Enter your cube</h2><p>Copy all six faces to start at your current stage.</p></div><form method="dialog"><button class="quiet" aria-label="Close sticker editor">✕</button></form></div>
+    <div class="editor-layout">
+      <div>
+        <div class="editor-guide"><p><strong>Start with yellow up and white down.</strong> Pick any side as your original front and remember it. Paint all six faces using the viewing instructions for each.</p></div>
+        <div class="section-label">1 · Choose a face</div>
+        <div class="editor-faces" id="editor-faces"></div>
+        <div class="section-label">2 · Choose a color</div>
+        <div id="palette" class="palette"></div>
+        <p class="muted" id="color-count"></p>
+        <div class="mode-controls"><button id="clear-editor" class="text-button">Clear stickers</button><button id="load-example" class="text-button">Try sample colors</button></div>
+      </div>
+      <div class="paint-panel">
+        <strong id="paint-title"></strong>
+        <p id="paint-hint"></p>
+        <div class="paint-grid" id="paint-grid" aria-label="Stickers, read left to right and top to bottom"></div>
+      </div>
+    </div>
+    <p id="editor-status" role="status"></p>
+    <div class="editor-actions">
+      <button id="next-face" class="secondary">Next face →</button>
+      <button id="solve-input" class="primary">Find my solve path →</button>
+    </div>
+  </dialog>
+</body>
+</html>
