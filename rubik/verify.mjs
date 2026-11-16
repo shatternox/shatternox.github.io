@@ -1,8 +1,8 @@
 // Checks for the CFOP algorithm sets: every algorithm must keep the solved
 // part of the cube intact, and each set must cover every possible case.
 // Used by the page at load (cheap) and by `node rubik/verify.mjs` in full.
-import { solved, applyMoves, pieces } from './cube.mjs?v=202611160411';
-import { run, parse, invert, IDENTITY, sameOrient } from './moves.mjs?v=202611160411';
+import { solved, applyMoves, pieces } from './cube.mjs?v=202611160440';
+import { run, parse, invert, IDENTITY, sameOrient } from './moves.mjs?v=202611160440';
 
 const F2L_PIECES = ['DF', 'DR', 'DB', 'DL', 'DRF', 'DBR', 'DLB', 'DFL', 'FR', 'BR', 'BL', 'FL'];
 const OTHER_SLOTS = ['DF', 'DR', 'DB', 'DL', 'DBR', 'DLB', 'DFL', 'BR', 'BL', 'FL'];
@@ -79,11 +79,102 @@ export function checkSet(kind, algs) {
   return { kind, cases: seen.size, expected, complete: seen.size === expected, problems };
 }
 
+// ---------- Roux, ZZ and Petrus sets ----------
+// Where a piece is: its slot, and which of its stickers faces the slot's first face.
+function locate(state, name) {
+  const [slot, idx] = Object.entries(pieces).find(([, idx]) => idx.length === name.length && [...name].every(c => idx.some(i => state[i] === c)));
+  return `${slot}${idx.findIndex(i => state[i] === name[0])}`;
+}
+// Edge orientation, front/back axis: the edge's key color (yellow/white, or
+// else green/blue) must face up/down, or front/back for a middle-layer edge.
+export function goodEdge(state, slot) {
+  const idx = pieces[slot];
+  let k = idx.findIndex(i => 'UD'.includes(state[i]));
+  if (k < 0) k = idx.findIndex(i => 'FB'.includes(state[i]));
+  return 'UD'.includes(slot[k]) || (!/[UD]/.test(slot) && 'FB'.includes(slot[k]));
+}
+const EDGES = ['UF', 'UR', 'UB', 'UL', 'DF', 'DR', 'DB', 'DL', 'FR', 'BR', 'BL', 'FL'];
+const LSE = ['UF', 'UR', 'UB', 'UL', 'DF', 'DB'];
+const eoPattern = (state, slots) => slots.map(s => (goodEdge(state, s) ? 0 : 1)).join('');
+const withPre = (state, turns, f) => turns.map(t => f(applyMoves(state, t))).sort()[0];
+const PRE_U = [0, 1, 2, 3].map(U);
+const FB = ['DL', 'DFL', 'DLB', 'FL', 'BL'];
+const SB = ['DR', 'DRF', 'DBR', 'FR', 'BR'];
+const BLOCK222 = ['DLB', 'DL', 'DB', 'BL'];
+const BLOCK223 = [...BLOCK222, 'DF', 'DFL', 'FL'];
+const allGood = state => EDGES.every(s => goodEdge(state, s));
+const piecesKey = names => state => withPre(state, PRE_U, s => names.map(n => locate(s, n)).join(' '));
+const without = (list, drop) => list.filter(n => !drop.includes(n));
+
+// For each set: pieces the moves must keep, how a case is told apart from
+// the others, which starting positions are valid, and how many cases exist.
+export const SETS = {
+  CMLL: { keep: [...FB, ...SB], expected: 42,
+    // Corners only, the same under top turns before and after.
+    keyAlg: alg => [0, 1, 2, 3].flatMap(b => {
+      const start = run(applyMoves(solved, U(b)), IDENTITY, invert(parse(alg))).state;
+      return PRE_U.map(t => { const s = applyMoves(start, t); return LL_CORNERS.map(n => pieces[n].map(i => s[i]).join('')).join(' '); });
+    }).sort()[0] },
+  LSE_EO: { keep: [...FB, ...SB], expected: 11, key: s => withPre(s, PRE_U, x => eoPattern(x, LSE)) },
+  LSE_ULUR: { keep: [...FB, ...SB], expected: 29, valid: s => LSE.every(e => goodEdge(s, e)), key: piecesKey(['UL', 'UR', 'UFR']) },
+  LSE_L4E: { keep: [...FB, ...SB, 'UL', 'UR', ...LL_CORNERS], expected: 11, valid: s => LSE.every(e => goodEdge(s, e)), key: s => s },
+  EDGE_DL: { keep: [], expected: 23, key: s => locate(s, 'DL') },
+  EDGE_DB: { keep: ['DL'], expected: 21, key: s => locate(s, 'DB') },
+  SB_EDGE: { keep: FB, expected: 11, key: piecesKey(['DR']) },
+  SB_PAIR: { keep: [...FB, 'DR', 'DBR', 'BR'], expected: 41, key: piecesKey(['DRF', 'FR']) },
+  SB_BACK: { keep: [...FB, 'DR', 'DRF', 'FR'], expected: 41, key: piecesKey(['DBR', 'BR']) },
+  FB_PAIR: { keep: ['DL', 'DLB', 'BL'], expected: 41, key: piecesKey(['DFL', 'FL']) },
+  FB_BACK: { keep: ['DL', 'DFL', 'FL'], expected: 41, key: piecesKey(['DLB', 'BL']) },
+  ZZ_EO: { keep: [], expected: 5, valid: s => EDGES.every(e => goodEdge(s, e) || /F/.test(e)),
+    key: s => withPre(s, [[], ['F2']], x => eoPattern(x, EDGES)) },
+  // The line's back edge stays put, unless the two line edges start swapped.
+  ZZ_LINE: { keep: ['DB'], expected: 11, valid: allGood, free: s => locate(s, 'DF').startsWith('DB'), key: s => locate(s, 'DF') },
+  ZZ_EDGE: { keep: ['DF', 'DB'], expected: 6, valid: allGood, key: piecesKey(['DR']) },
+  RU_PAIR: { keep: without(F2L_PIECES, ['DRF', 'FR']), expected: 20, valid: allGood, key: piecesKey(['DRF', 'FR']) },
+  RU_BACK: { keep: without(F2L_PIECES, ['DBR', 'BR']), expected: 20, valid: allGood, key: piecesKey(['DBR', 'BR']) },
+  PETRUS_BL: { keep: ['DL', 'DB'], expected: 41, key: piecesKey(['DLB', 'BL']) },
+  PETRUS_DF: { keep: BLOCK222, expected: 11, key: piecesKey(['DF']) },
+  PETRUS_FL: { keep: [...BLOCK222, 'DF'], expected: 41, key: piecesKey(['DFL', 'FL']) },
+  PETRUS_EO: { keep: BLOCK223, expected: 3, valid: s => EDGES.every(e => goodEdge(s, e) || e[0] === 'U'),
+    key: s => withPre(s, PRE_U, x => eoPattern(x, LL_EDGES)) },
+};
+
+export function checkCases(name, algs) {
+  const rule = SETS[name];
+  const problems = [];
+  const seen = new Map();
+  algs.forEach((alg, n) => {
+    const label = `${name}[${n}] ${alg}`;
+    let after;
+    try { after = run(solved, IDENTITY, parse(alg)); } catch (error) { problems.push(`${label}: cannot parse (${error.message})`); return; }
+    if (!sameOrient(after.orient, IDENTITY)) { problems.push(`${label}: leaves the centers turned`); return; }
+    const start = caseState(alg).state;
+    const keep = rule.free?.(start) ? [] : rule.keep;
+    const broken = keep.filter(p => !placed(after.state, p));
+    if (broken.length) problems.push(`${label}: breaks ${broken.join(' ')}`);
+    if (rule.valid && !rule.valid(start)) problems.push(`${label}: starts from a position this step never sees`);
+    if (start === solved) problems.push(`${label}: does nothing`);
+    const key = rule.keyAlg ? rule.keyAlg(alg) : rule.key(start);
+    if (seen.has(key)) problems.push(`${label}: same case as ${seen.get(key)}`);
+    else seen.set(key, `[${n}]`);
+  });
+  return { kind: name, cases: seen.size, expected: rule.expected, complete: seen.size === rule.expected && !problems.length, problems };
+}
+
 if (typeof process !== 'undefined' && import.meta.url === `file:///${process.argv[1].replaceAll('\\', '/')}`) {
-  const { OLL, PLL, F2L } = await import('./algs.mjs?v=202611160411');
+  const sets = await import('./algs.mjs?v=202611160440');
+  const { OLL, PLL, F2L } = sets;
   for (const [kind, algs] of [['oll', OLL], ['pll', PLL], ['f2l', Object.fromEntries(F2L.map((a, i) => [i + 1, a]))]]) {
     const result = checkSet(kind, algs);
     console.log(`${kind}: ${result.cases}/${result.expected} cases${result.problems.length ? '' : ', no problems'}`);
     for (const p of result.problems) console.log('  -', p);
   }
+  let failed = false;
+  for (const name of Object.keys(SETS)) {
+    const result = checkCases(name, sets[name]);
+    failed ||= !result.complete;
+    console.log(`${name}: ${result.cases}/${result.expected} cases${result.problems.length ? '' : ', no problems'}`);
+    for (const p of result.problems) console.log('  -', p);
+  }
+  if (failed) process.exitCode = 1;
 }

@@ -1,8 +1,8 @@
 // Pictures of cases, and the solving map: a method drawn as a tree of
 // steps → recognition groups → cases → moves.
-import { tiles } from './cube.mjs?v=202611160411';
-import { palette, standard } from './lessons.mjs?v=202611160411';
-import { isoCube, topView } from './art.mjs?v=202611160411';
+import { tiles } from './cube.mjs?v=202611160440';
+import { palette, standard } from './lessons.mjs?v=202611160440';
+import { isoCube, topView } from './art.mjs?v=202611160440';
 
 const cache = new Map();
 function focusIndices(c, state) {
@@ -14,7 +14,7 @@ export function thumb(method, stepIndex, c) {
   if (cache.has(id)) return cache.get(id);
   const step = method.steps[stepIndex];
   const { state } = c.start;
-  const yaw = c.start.yaw ?? 0;
+  const yaw = c.start.yaw ?? step.yaw ?? 0;
   const show = step.mask(state);
   const html = step.art === 'top'
     ? topView(state, { palette, colors: standard, show, yaw })
@@ -29,7 +29,7 @@ export function goalThumb(method, stepIndex) {
   const show = step.mask(step.goal);
   const html = step.art === 'top'
     ? topView(step.goal, { palette, colors: standard, show })
-    : isoCube(step.goal, { palette, colors: standard, show });
+    : isoCube(step.goal, { palette, colors: standard, show, yaw: step.yaw ?? 0 });
   cache.set(id, html);
   return html;
 }
