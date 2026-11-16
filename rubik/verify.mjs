@@ -1,8 +1,8 @@
 // Checks for the CFOP algorithm sets: every algorithm must keep the solved
 // part of the cube intact, and each set must cover every possible case.
 // Used by the page at load (cheap) and by `node rubik/verify.mjs` in full.
-import { solved, applyMoves, pieces } from './cube.mjs?v=202611161730';
-import { run, parse, invert, IDENTITY, sameOrient } from './moves.mjs?v=202611161730';
+import { solved, applyMoves, pieces } from './cube.mjs?v=202611161745';
+import { run, parse, invert, IDENTITY, sameOrient } from './moves.mjs?v=202611161745';
 
 const F2L_PIECES = ['DF', 'DR', 'DB', 'DL', 'DRF', 'DBR', 'DLB', 'DFL', 'FR', 'BR', 'BL', 'FL'];
 const OTHER_SLOTS = ['DF', 'DR', 'DB', 'DL', 'DBR', 'DLB', 'DFL', 'BR', 'BL', 'FL'];
@@ -162,7 +162,7 @@ export function checkCases(name, algs) {
 }
 
 if (typeof process !== 'undefined' && import.meta.url === `file:///${process.argv[1].replaceAll('\\', '/')}`) {
-  const sets = await import('./algs.mjs?v=202611161730');
+  const sets = await import('./algs.mjs?v=202611161745');
   const { OLL, PLL, F2L } = sets;
   for (const [kind, algs] of [['oll', OLL], ['pll', PLL], ['f2l', Object.fromEntries(F2L.map((a, i) => [i + 1, a]))]]) {
     const result = checkSet(kind, algs);

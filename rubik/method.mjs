@@ -2,7 +2,7 @@
 // from the solver's point of view (yellow on top, whatever face is in front).
 // `y` turns the whole cube; it changes which face is "front" without moving
 // any piece, so the state stays absolute and only the yaw changes.
-import { faces, pieces, tiles, applyMoves, permutation, inspectCube, home, tokens, solved } from './cube.mjs?v=202611161730';
+import { faces, pieces, tiles, applyMoves, permutation, inspectCube, home, tokens, solved } from './cube.mjs?v=202611161745';
 
 const SIDES = 'FRBL';
 export const ALGS = {

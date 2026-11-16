@@ -514,3 +514,10 @@ body:not([data-method="beginner"]) .beginner-only { display: none !important; }
 .mc-times { align-self: center; padding: 0 4px; color: var(--gold); font: 600 .8rem var(--mono); }
 .mc-legend { color: var(--muted); font: .62rem var(--mono); }
 .mc-open { align-self: flex-start; margin-top: auto; min-height: 40px; }
+.mc-result { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px; border: 1px solid #2f5a40; border-radius: var(--radius); background: #0e1c15; }
+.mc-result .map-thumb svg { width: 96px; height: auto; }
+.map-exit-row { grid-column: 1 / -1; }
+.map-exit { flex-direction: row; justify-content: flex-start; gap: 16px; padding: 14px 16px; text-align: left; border-width: 2px; }
+.map-exit .map-thumb svg { width: 88px; height: auto; }
+.map-exit b { font-size: 1rem; }
+.map-exit .exit-tag { color: var(--acid); text-transform: uppercase; letter-spacing: .06em; }

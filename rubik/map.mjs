@@ -1,8 +1,8 @@
 // Pictures of cases, and the solving map: a method drawn as a tree of
 // steps → recognition groups → cases → moves.
-import { tiles, showMove } from './cube.mjs?v=202611161730';
-import { palette, standard } from './lessons.mjs?v=202611161730';
-import { isoCube, topView, moveIcon, moveHand } from './art.mjs?v=202611161730';
+import { tiles, showMove } from './cube.mjs?v=202611161745';
+import { palette, standard } from './lessons.mjs?v=202611161745';
+import { isoCube, topView, moveIcon, moveHand } from './art.mjs?v=202611161745';
 
 const cache = new Map();
 function focusIndices(c, state) {
@@ -15,12 +15,17 @@ const SIDE_WORD = { F: 'FRONT', R: 'RIGHT', B: 'BACK', L: 'LEFT' };
 // turned (their yaw); other methods are always held the standard way and
 // only drawn from another angle.
 const viewWord = (drawYaw, holdYaw, side) => SIDE_WORD[SIDES[(SIDES.indexOf(side) + drawYaw - holdYaw + 8) % 4]];
-export function thumb(method, stepIndex, c, { labels = false } = {}) {
-  const id = `${method.id}:${stepIndex}:${c.key}:${labels}`;
+// Draw a case at its start, or at its end (`after`) to show the expected result.
+export function thumb(method, stepIndex, c, { labels = false, after = false } = {}) {
+  const id = `${method.id}:${stepIndex}:${c.key}:${labels}:${after}`;
   if (cache.has(id)) return cache.get(id);
   const step = method.steps[stepIndex];
-  const { state } = c.start;
-  const yaw = c.start.yaw ?? step.yaw ?? 0;
+  const frame = after ? c.frames.at(-1) : c.start;
+  const { state } = frame;
+  const startYaw = c.start.yaw ?? step.yaw ?? 0;
+  // Beginner frames carry the way the cube is held; other methods are
+  // held the standard way and only drawn from another angle.
+  const yaw = method.id === 'beginner' ? frame.yaw ?? startYaw : startYaw;
   const hold = method.id === 'beginner' ? yaw : 0;
   const show = step.mask(state);
   const html = step.art === 'top'
@@ -70,6 +75,10 @@ function formulaGroups(c) {
   }
   return parts;
 }
+function resultText(step, c) {
+  if (step.art === 'top') return 'Your top should now look like this. Same pattern, the colors may differ.';
+  return c.focus ? 'Your cube should now look like this: the outlined piece has moved to its new spot. Same pattern, the colors may differ.' : 'Your cube should now look like this. Same pattern, the colors may differ.';
+}
 const HAND_WORD = { R: 'right hand', L: 'left hand', both: 'whole cube' };
 function caseCard(method, stepIndex, c, here) {
   const step = method.steps[stepIndex];
@@ -86,7 +95,8 @@ function caseCard(method, stepIndex, c, here) {
     <ol class="mc-steps">
       <li><b>Hold &amp; get ready</b><span>${c.hint ?? step.hint ?? ''}</span></li>
       <li><b>Do ${c.moves.length} move${c.moves.length === 1 ? '' : 's'}</b><code class="mc-formula">${formula}</code><span class="mc-chips">${chips}</span><small class="mc-legend">R / L under a move = the hand that turns it</small></li>
-      <li><b>Then</b><span>Look at your cube again and pick the next picture.</span></li>
+      <li><b>Expected result</b><span class="mc-result"><span class="map-thumb">${thumb(method, stepIndex, c, { labels: true, after: true })}</span><span>${resultText(step, c)}</span></span></li>
+      <li><b>Then</b><span>Doesn’t match? Undo the moves and check how you held it. Matches? Look at your cube again and pick the next picture, until it looks like this step’s finish picture.</span></li>
     </ol>
     <button type="button" class="button ghost mc-open" data-stage="${stepIndex}" data-key="${c.key}">▶ Show me in 3D</button>
   </article>`;
@@ -115,7 +125,7 @@ export function renderMap(container, { method, current, onPick }) {
       </div>
       <ul class="map-branches">
         ${branches(method, i, step.cases, 0, current)}
-        <li class="map-exit-row"><div class="map-exit"><span class="map-thumb">${goalThumb(method, i)}</span><span><b>✓ ${step.done}</b>${i < method.steps.length - 1 ? `<small>→ step ${String(i + 2).padStart(2, '0')}</small>` : ''}</span></div></li>
+        <li class="map-exit-row"><div class="map-exit"><span class="map-thumb">${goalThumb(method, i)}</span><span><small class="exit-tag">Step ${String(i + 1).padStart(2, '0')} finished when it looks like this</small><b>✓ ${step.done}</b><small>${i < method.steps.length - 1 ? `Then go to step ${String(i + 2).padStart(2, '0')}: ${method.steps[i + 1].name} ↓` : 'Your cube is solved 🎉'}</small></span></div></li>
       </ul>
     </li>`).join('')}</ol>`;
   container.querySelectorAll('.mc-open').forEach(node => node.addEventListener('click', () => onPick(Number(node.dataset.stage), node.dataset.key)));
