@@ -1,15 +1,15 @@
-import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs?v=202611161600';
-import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs?v=202611161600';
-import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161600';
-import { examples } from './examples.mjs?v=202611161600';
-import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs?v=202611161600';
-import { createGuide } from './guide.mjs?v=202611161600';
-import { orientFromYaw, modelFace } from './moves.mjs?v=202611161600';
-import { createCoach } from './coach.mjs?v=202611161600';
-import { sfx, confetti } from './sfx.mjs?v=202611161600';
-import { music } from './music.mjs?v=202611161600';
-import { renderMap } from './map.mjs?v=202611161600';
-import { methodList, getMethod } from './methods.mjs?v=202611161600';
+import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs?v=202611161615';
+import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs?v=202611161615';
+import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161615';
+import { examples } from './examples.mjs?v=202611161615';
+import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs?v=202611161615';
+import { createGuide } from './guide.mjs?v=202611161615';
+import { orientFromYaw, modelFace } from './moves.mjs?v=202611161615';
+import { createCoach } from './coach.mjs?v=202611161615';
+import { sfx } from './sfx.mjs?v=202611161615';
+import { music } from './music.mjs?v=202611161615';
+import { renderMap } from './map.mjs?v=202611161615';
+import { methodList, getMethod } from './methods.mjs?v=202611161615';
 
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -586,13 +586,18 @@ function buildLogo() {
   const face = (name, color, count) => `<div class="lf lf-${name}">${`<i style="--c:${palette[color]}"></i>`.repeat(count)}</div>`;
   const slab = (row, extra) => `<div class="slab slab-${row}">${Object.entries(sides).map(([name, color]) => face(name, color, 3)).join('')}${extra}</div>`;
   const inner = '<div class="lf lf-cap lf-in-top"></div><div class="lf lf-cap lf-in-bottom"></div>';
-  $('logo').innerHTML = `<div class="logo-spin">${slab('top', face('top', 'yellow', 9).replace('lf-top', 'lf-cap lf-top') + '<div class="lf lf-cap lf-in-bottom"></div>')}${slab('mid', inner)}${slab('bottom', face('bottom', 'white', 9).replace('lf-bottom', 'lf-cap lf-bottom') + '<div class="lf lf-cap lf-in-top"></div>')}</div>`;
-  $('logo').addEventListener('click', () => { sfx.turn(0.3); confetti(Object.values(palette)); });
+  $('logo').innerHTML = `<div class="logo-twirl"><div class="logo-spin">${slab('top', face('top', 'yellow', 9).replace('lf-top', 'lf-cap lf-top') + '<div class="lf lf-cap lf-in-bottom"></div>')}${slab('mid', inner)}${slab('bottom', face('bottom', 'white', 9).replace('lf-bottom', 'lf-cap lf-bottom') + '<div class="lf lf-cap lf-in-top"></div>')}</div></div>`;
+  // A click gives it one quick extra turn.
+  $('logo').addEventListener('click', () => {
+    sfx.turn(0.3);
+    if (reducedMotion.matches) return;
+    $('logo').querySelector('.logo-twirl').animate([{ transform: 'rotateY(0deg)' }, { transform: 'rotateY(-360deg)' }], { duration: 750, easing: 'cubic-bezier(.25,.8,.3,1)' });
+  });
 }
 buildLogo();
 
 setMode(location.hash === '#learn' ? 'learn' : location.hash === '#map' ? 'map' : 'coach', false);
-import('./viewer.mjs?v=202611161600').then(({ createViewer }) => {
+import('./viewer.mjs?v=202611161615').then(({ createViewer }) => {
   view = createViewer($('canvas'));
   guide.attach(view);
   $('fallback').hidden = true;

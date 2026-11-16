@@ -492,3 +492,4 @@ body:not([data-method="beginner"]) .beginner-only { display: none !important; }
   .player-bar .play { flex: 1; min-width: 0; }
   .player-pos { order: -1; width: 100%; margin-left: 0; }
 }
+.logo-twirl { width: 100%; height: 100%; transform-style: preserve-3d; }

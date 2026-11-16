@@ -1,11 +1,11 @@
 // The solving map: for every step, where to look, every case you can see,
 // and the moves for it, already held the right way. Pure data plus drawings,
 // shared by the coach and the map view.
-import { solved, applyMoves, tokens, inverse, tiles, inspectCube } from './cube.mjs?v=202611161600';
-import { planNext, play, relevance, pieceLocation, currentStage, WHITE_EDGES } from './method.mjs?v=202611161600';
-import { lessons, standard, palette } from './lessons.mjs?v=202611161600';
-import { examples } from './examples.mjs?v=202611161600';
-import { isoCube, topView } from './art.mjs?v=202611161600';
+import { solved, applyMoves, tokens, inverse, tiles, inspectCube } from './cube.mjs?v=202611161615';
+import { planNext, play, relevance, pieceLocation, currentStage, WHITE_EDGES } from './method.mjs?v=202611161615';
+import { lessons, standard, palette } from './lessons.mjs?v=202611161615';
+import { examples } from './examples.mjs?v=202611161615';
+import { isoCube, topView } from './art.mjs?v=202611161615';
 
 // A cube with a finished daisy: every white edge on top, white facing up.
 const daisy = applyMoves(solved, tokens('F2 R2 B2 L2'));

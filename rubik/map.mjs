@@ -1,8 +1,8 @@
 // Pictures of cases, and the solving map: a method drawn as a tree of
 // steps → recognition groups → cases → moves.
-import { tiles } from './cube.mjs?v=202611161600';
-import { palette, standard } from './lessons.mjs?v=202611161600';
-import { isoCube, topView } from './art.mjs?v=202611161600';
+import { tiles } from './cube.mjs?v=202611161615';
+import { palette, standard } from './lessons.mjs?v=202611161615';
+import { isoCube, topView } from './art.mjs?v=202611161615';
 
 const cache = new Map();
 function focusIndices(c, state) {
