@@ -3,106 +3,117 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101412">
-  <meta name="description" content="Solve a 3×3 Rubik’s Cube in 8 short steps. Pick the case that looks like yours, watch it in 3D, copy the moves. Every case covered.">
+  <meta name="theme-color" content="#080c0a">
+  <meta name="description" content="Solve your own Rubik’s Cube with zero experience. Show the app your cube, then copy one move at a time with a 3D guide, hands, arrows and sound.">
   <link rel="canonical" href="https://shatternox.github.io/rubik/">
   <link rel="icon" href="../assets/favicon.ico" sizes="any">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="rubik.css">
   <script type="module" src="app.mjs"></script>
-  <title>Solve a 3×3 Rubik’s Cube | Ardian Danny</title>
+  <title>Solve a Rubik’s Cube | Ardian Danny</title>
 </head>
-<body>
-  <a class="skip" href="#player">Skip to the cube</a>
-  <header class="site-head shell">
-    <a class="brand" href="../">ARDIAN DANNY <i></i></a>
-    <button class="quiet" id="open-notation">How to read moves</button>
+<body data-mode="coach">
+  <a class="skip-link" href="#app">Skip to the cube</a>
+  <header>
+    <div class="wrap">
+      <nav aria-label="Primary navigation">
+        <a class="brand" href="../">ARDIAN DANNY<b aria-hidden="true"></b></a>
+        <ul>
+          <li><a href="../#profile">Profile</a></li>
+          <li><a href="../#experience">Experience</a></li>
+          <li><a href="../#competitions">Achievements</a></li>
+          <li><a href="../#community">Community</a></li>
+          <li><a class="here" href="./" aria-current="page">Rubik’s Cube</a></li>
+        </ul>
+        <a class="nav-button" href="../#contact">Let’s talk ↗</a>
+      </nav>
+    </div>
   </header>
-  <main class="shell">
-    <section class="intro" aria-labelledby="title">
-      <div class="logo-cube" id="logo" aria-hidden="true"></div>
-      <div class="intro-text">
-        <h1 id="title">Solve a Rubik’s <em>Cube.</em></h1>
-        <p>8 steps. Pick the case that looks like yours, watch it, copy it.</p>
+  <main>
+    <section class="hero wrap" aria-labelledby="title">
+      <div class="hero-text">
+        <p class="eyebrow">Rubik’s Cube · beginner method</p>
+        <h1 id="title">Solve your cube.<br><em>No experience needed.</em></h1>
+        <p class="lede">Show me your cube, then copy one move at a time. A 3D cube, glowing hands and arrows show every turn.</p>
+        <div class="hero-actions">
+          <button id="cta-solve" class="button primary">Solve my cube →</button>
+          <button id="cta-learn" class="button">Learn the 8 steps</button>
+        </div>
       </div>
-      <div class="intro-actions">
-        <button id="start-lesson" class="primary">Start at step 1</button>
-        <button id="scramble" class="secondary">Scramble &amp; solve ↻</button>
-        <button id="open-editor" class="secondary">Solve my cube</button>
-        <button id="resume" class="secondary" hidden>← Back to my solve</button>
+      <button class="logo-cube" id="logo" aria-label="Spin the cube"></button>
+    </section>
+
+    <section class="app wrap" id="app" aria-label="Cube coach">
+      <div class="app-bar">
+        <div class="tabs" role="tablist" aria-label="Mode">
+          <button role="tab" data-mode-tab="coach" aria-selected="true">01 · Solve my cube</button>
+          <button role="tab" data-mode-tab="learn" aria-selected="false">02 · Learn the steps</button>
+        </div>
+        <div class="app-tools">
+          <button class="tool coach-only" id="restart-coach">Start over</button>
+          <button class="tool" id="open-notation">Move letters</button>
+          <button class="tool icon" id="sound" aria-pressed="true">🔊</button>
+        </div>
+      </div>
+      <nav class="steps learn-only" id="steps" aria-label="Steps"></nav>
+      <div class="workbench">
+        <section class="player" id="player" aria-label="3D cube">
+          <div class="stage-view" id="viewer">
+            <div class="view-top">
+              <span id="hold" class="hold"></span>
+              <button class="tool small" id="reset-view">Reset view</button>
+            </div>
+            <div class="canvas" id="canvas"></div>
+            <div class="fallback" id="fallback" hidden></div>
+            <div class="view-bottom">
+              <span id="drag-hint">Drag to look around</span>
+              <span class="toggles"><label class="toggle"><input type="checkbox" id="show-hands" checked> Hands</label><label class="toggle learn-only"><input type="checkbox" id="show-all"> All colors</label></span>
+            </div>
+          </div>
+          <div class="learn-only">
+            <div class="play-tabs" role="tablist" aria-label="How to practice">
+              <button role="tab" data-play-tab="watch" aria-selected="true">▶ Watch</button>
+              <button role="tab" data-play-tab="try" aria-selected="false">✋ Try it yourself</button>
+            </div>
+            <p id="case-line" class="case-line" aria-live="polite"></p>
+            <div class="now">
+              <div id="now-icon" class="now-icon"></div>
+              <div class="now-text">
+                <div><strong id="now-move"></strong> <span id="now-text" aria-live="polite"></span></div>
+                <small id="now-step"></small>
+              </div>
+              <div class="controls watch-only">
+                <button id="restart" class="button icon" aria-label="Back to the start" title="Back to the start">⏮</button>
+                <button id="prev" class="button icon" aria-label="Previous move" title="Previous move (←)">←</button>
+                <button id="play" class="button play">▶ Play</button>
+                <button id="next" class="button primary next" title="Next move (→)">Next →</button>
+                <label class="speed">Speed <select id="speed"><option value="800">Slow</option><option value="450" selected>Normal</option><option value="230">Fast</option></select></label>
+              </div>
+              <div class="controls try-only"><button id="hint" class="button">💡 Hint</button></div>
+            </div>
+            <div class="pad try-only" id="pad" aria-label="Move pad. Keys U R F L D B Y, hold Shift for the other way."></div>
+            <div id="finish" class="finish" hidden></div>
+            <p id="full-formula" class="full-formula watch-only"></p>
+            <div id="timeline" class="timeline" aria-label="Moves for this case"></div>
+          </div>
+        </section>
+        <aside class="side">
+          <div id="coach" class="coach coach-only" aria-live="polite"></div>
+          <div id="panel" class="panel learn-only" aria-labelledby="panel-title"></div>
+        </aside>
       </div>
     </section>
-    <noscript><p class="notice">Turn on JavaScript to use the cube.</p></noscript>
-    <nav class="steps" id="steps" aria-label="Steps"></nav>
-    <div class="workbench">
-      <section class="player" id="player" aria-label="Cube player">
-        <div class="stage-view" id="viewer">
-          <div class="view-top">
-            <span id="hold" class="hold"></span>
-            <button class="quiet small-text" id="reset-view">Reset view</button>
-          </div>
-          <div class="canvas" id="canvas"></div>
-          <div class="fallback" id="fallback" hidden></div>
-          <div class="view-bottom">
-            <span id="drag-hint">Drag to peek · it snaps back</span>
-            <span class="toggles"><label class="toggle"><input type="checkbox" id="show-hands" checked> Hands</label><label class="toggle"><input type="checkbox" id="show-all"> All colors</label></span>
-          </div>
-        </div>
-        <p id="case-line" class="case-line" aria-live="polite"></p>
-        <div class="now">
-          <div id="now-icon" class="now-icon"></div>
-          <div class="now-text">
-            <div><strong id="now-move"></strong> <span id="now-text" aria-live="polite"></span></div>
-            <small id="now-step"></small>
-          </div>
-          <div class="controls">
-            <button id="restart" class="secondary icon" aria-label="Back to the start" title="Back to the start">⏮</button>
-            <button id="prev" class="secondary icon" aria-label="Previous move" title="Previous move (←)">←</button>
-            <button id="play" class="secondary play">▶ Play</button>
-            <button id="next" class="primary next" title="Next move (→)">Next →</button>
-            <label class="speed">Speed <select id="speed"><option value="800">Slow</option><option value="450" selected>Normal</option><option value="230">Fast</option></select></label>
-          </div>
-        </div>
-        <div id="finish" class="finish" hidden></div>
-        <p id="full-formula" class="full-formula"></p>
-        <div id="timeline" class="timeline" aria-label="Moves for this case"></div>
-      </section>
-      <aside class="panel" id="panel" aria-labelledby="panel-title"></aside>
-    </div>
   </main>
-  <footer class="site-footer shell">
+  <footer class="site-footer wrap">
     <a href="../">← Back to shatternox.github.io</a>
-    <div>Steps follow <a href="https://www.youtube.com/watch?v=-Wxrs4MbiFc">Kelvin Kurniawan’s tutorial</a>, with every case added.</div>
+    <span>Steps follow <a href="https://www.youtube.com/watch?v=-Wxrs4MbiFc">Kelvin Kurniawan’s tutorial</a>, with every case added. The camera scan runs only in your browser.</span>
   </footer>
   <dialog id="notation" class="dialog">
-    <div class="dialog-head"><h2>How to read moves</h2><form method="dialog"><button class="quiet" aria-label="Close">✕</button></form></div>
-    <p>Each letter is a side: <b>U</b>p, <b>D</b>own, <b>R</b>ight, <b>L</b>eft, <b>F</b>ront, <b>B</b>ack. A plain letter turns it clockwise (as if you face that side). <b>′</b> means the other way, <b>2</b> means twice. Tap one to see it.</p>
+    <div class="dialog-head"><h2>Move letters</h2><form method="dialog"><button class="tool" aria-label="Close">✕</button></form></div>
+    <p>Each letter is a side: <b>U</b>p (top), <b>D</b>own, <b>R</b>ight, <b>L</b>eft, <b>F</b>ront, <b>B</b>ack. A plain letter turns it clockwise, as if you face that side. <b>′</b> means the other way, <b>2</b> means twice. <b>y</b> turns the whole cube. Tap one to see it.</p>
     <div id="notation-grid" class="notation-grid"></div>
-  </dialog>
-  <dialog class="dialog editor-dialog" id="editor">
-    <div class="dialog-head"><div><h2>Enter your cube</h2><p>Hold yellow on top and white on the bottom, then paint each face.</p></div><form method="dialog"><button class="quiet" aria-label="Close">✕</button></form></div>
-    <div class="editor-layout">
-      <div>
-        <div class="label">1 · Face</div>
-        <div class="editor-faces" id="editor-faces"></div>
-        <div class="label">2 · Color</div>
-        <div id="palette" class="palette"></div>
-        <p class="muted" id="color-count"></p>
-        <div class="row"><button id="clear-editor" class="quiet">Clear</button><button id="load-example" class="quiet">Try sample colors</button></div>
-      </div>
-      <div class="paint-panel">
-        <strong id="paint-title"></strong>
-        <p id="paint-hint"></p>
-        <div class="paint-grid" id="paint-grid" aria-label="Stickers, left to right, top to bottom"></div>
-      </div>
-    </div>
-    <p id="editor-status" role="status"></p>
-    <div class="editor-actions">
-      <button id="next-face" class="secondary">Next face →</button>
-      <button id="solve-input" class="primary">Show me how →</button>
-    </div>
   </dialog>
 </body>
 </html>

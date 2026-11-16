@@ -1,126 +1,154 @@
-// Two see-through hands made of glowing green dots, holding the cube the way a
-// beginner does: thumb on the front, index finger on top, the other fingers
-// behind. Coordinates are the solver's frame (+x right, +y up, +z toward you).
+// Two see-through human hands made of glowing green dots, holding the cube the
+// way a beginner does: thumb low on the front, index finger over the top, the
+// other fingers wrapped around the back. Coordinates are the solver's frame
+// (+x right, +y up, +z toward you); the cube spans -1.5..1.5.
 import * as THREE from '../assets/vendor/three/three.module.min.js';
 
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
 
-// Right hand. The left hand is its mirror image.
+// Right hand. The left hand is its mirror image. Joints run knuckle → tip.
 const FINGERS = [
-  // joints, radius at base, radius at tip, dots
-  { joints: [v(1.96, -0.05, 0.55), v(2.05, 0.3, 1.25), v(1.78, 0.5, 1.86), v(1.2, 0.56, 1.86), v(0.78, 0.56, 1.83)], r: [0.22, 0.15],},
-  { joints: [v(1.94, 0.72, -0.72), v(1.98, 1.42, -0.68), v(1.72, 1.86, -0.62), v(1.12, 1.88, -0.58), v(0.62, 1.85, -0.55)], r: [0.18, 0.13],},
-  { joints: [v(1.95, 0.28, -1.02), v(1.98, 0.28, -1.66), v(1.7, 0.27, -1.94), v(1.05, 0.26, -1.9), v(0.4, 0.25, -1.86)], r: [0.18, 0.13],},
-  { joints: [v(1.94, -0.2, -1.0), v(1.97, -0.21, -1.62), v(1.68, -0.22, -1.92), v(1.08, -0.23, -1.88), v(0.55, -0.24, -1.85)], r: [0.17, 0.12],},
-  { joints: [v(1.92, -0.64, -0.92), v(1.96, -0.66, -1.48), v(1.7, -0.67, -1.86), v(1.22, -0.68, -1.85), v(0.88, -0.69, -1.83)], r: [0.15, 0.11],},
+  // index: over the top-right edge, resting on the top
+  { joints: [v(1.86, 0.78, -0.82), v(1.86, 1.42, -0.86), v(1.6, 1.86, -0.9), v(1.08, 1.92, -0.94), v(0.66, 1.88, -0.96)], r: 0.215 },
+  // middle, ring, little: around the back-right edge onto the back
+  { joints: [v(1.9, 0.3, -1.05), v(1.9, 0.3, -1.6), v(1.6, 0.3, -1.92), v(0.95, 0.29, -1.92), v(0.4, 0.28, -1.86)], r: 0.225 },
+  { joints: [v(1.9, -0.24, -1.02), v(1.9, -0.25, -1.56), v(1.6, -0.26, -1.9), v(1.0, -0.27, -1.9), v(0.52, -0.28, -1.85)], r: 0.21 },
+  { joints: [v(1.88, -0.74, -0.92), v(1.9, -0.76, -1.4), v(1.66, -0.78, -1.8), v(1.18, -0.8, -1.84), v(0.84, -0.81, -1.8)], r: 0.18 },
+  // thumb: around the front-right edge, low on the front
+  { joints: [v(1.96, -0.42, 0.62), v(2.04, -0.46, 1.24), v(1.78, -0.5, 1.84), v(1.28, -0.52, 1.9), v(0.88, -0.53, 1.86)], r: 0.25, thumb: true },
 ];
-const PALM = { center: v(1.93, -0.06, -0.12), ry: 0.95, rz: 1.0, thick: 0.12 };
-const ARM = { joints: [v(1.98, -0.85, 0.7), v(2.25, -1.6, 1.5), v(2.55, -2.5, 2.4)], r: [0.42, 0.5] };
+const PALM = { center: v(1.95, -0.12, -0.12), size: v(0.3, 1.12, 1.02) };
+const THENAR = { center: v(2.02, -0.5, 0.5), size: v(0.3, 0.46, 0.42) };
+const ARM = [v(2.06, -1.2, 0.42), v(2.4, -2.2, 1.3), v(2.75, -3.3, 2.25)];
 
+const random = () => Math.random();
 const randomUnit = () => {
-  const u = Math.random() * 2 - 1;
-  const a = Math.random() * Math.PI * 2;
+  const u = random() * 2 - 1;
+  const a = random() * Math.PI * 2;
   const s = Math.sqrt(1 - u * u);
   return v(s * Math.cos(a), s * Math.sin(a), u);
 };
 
-// Dots laid out in rings around each bone, so fingers read as solid tubes.
-function sampleTube(joints, [r0, r1], push, { flow = [0.35, 1], fade = () => 1, spacing = 0.075 } = {}) {
+function createBuffers(mirror) {
+  const data = { position: [], normal: [], size: [], fade: [], seed: [], curl: [], nail: [] };
+  const push = (point, normal, { size = 1, fade = 1, curl = 0, nail = 0 } = {}) => {
+    data.position.push(mirror ? -point.x : point.x, point.y, point.z);
+    data.normal.push(mirror ? -normal.x : normal.x, normal.y, normal.z);
+    data.size.push(size * (0.7 + random() * 0.6));
+    data.fade.push(fade);
+    data.seed.push(random());
+    data.curl.push(curl);
+    data.nail.push(nail);
+  };
+  return { data, push };
+}
+
+// Dots scattered over a soft, slightly flattened tube with knuckle bulges.
+function finger({ joints, r, thumb }, push) {
   const curve = new THREE.CatmullRomCurve3(joints, false, 'centripetal');
   const length = curve.getLength();
-  const rings = Math.max(4, Math.round(length / spacing));
-  for (let ring = 0; ring <= rings; ring++) {
-    const t = ring / rings;
-    const center = curve.getPointAt(t);
-    const tangent = curve.getTangentAt(t);
-    const side = Math.abs(tangent.y) < 0.9 ? v(0, 1, 0) : v(1, 0, 0);
-    const a = side.clone().cross(tangent).normalize();
-    const b = tangent.clone().cross(a).normalize();
-    // Taper, with a rounded fingertip.
-    let radius = r0 + (r1 - r0) * t;
-    if (t > 0.9) radius *= Math.sqrt(Math.max(0.05, 1 - ((t - 0.9) / 0.1) ** 2));
-    const count = Math.max(5, Math.round(radius * 2 * Math.PI / 0.062));
-    const twist = ring * 0.37;
-    for (let k = 0; k < count; k++) {
-      const angle = twist + k / count * Math.PI * 2;
-      const point = center.clone()
-        .add(a.clone().multiplyScalar(Math.cos(angle) * radius))
-        .add(b.clone().multiplyScalar(Math.sin(angle) * radius))
-        .add(randomUnit().multiplyScalar(0.008));
-      push(point, 1, fade(t), flow[0] + (flow[1] - flow[0]) * t);
+  const count = Math.round(length * r * 2600);
+  const knuckles = joints.slice(1, -1).map((joint, index) => (index + 1) / (joints.length - 1));
+  for (let i = 0; i < count; i++) {
+    const p = random();
+    const center = curve.getPointAt(p);
+    const tangent = curve.getTangentAt(p);
+    // The back of the finger points away from the cube.
+    const dorsal = center.clone().sub(tangent.clone().multiplyScalar(center.dot(tangent))).normalize();
+    const lateral = tangent.clone().cross(dorsal).normalize();
+    let radius = r * (thumb ? 1.08 - 0.22 * p : 1.04 - 0.24 * p);
+    for (const k of knuckles) radius *= 1 + 0.1 * Math.exp(-(((p - k) / 0.05) ** 2));
+    if (p > 0.88) radius *= Math.sqrt(Math.max(0.04, 1 - ((p - 0.88) / 0.12) ** 2));
+    const angle = random() * Math.PI * 2;
+    // Fingers are wider than they are deep, and the pad side is fuller.
+    const across = Math.cos(angle) * radius * 1.12;
+    const depth = Math.sin(angle) * radius * (Math.sin(angle) < 0 ? 0.98 : 0.84);
+    const normal = lateral.clone().multiplyScalar(Math.cos(angle)).add(dorsal.clone().multiplyScalar(Math.sin(angle))).normalize();
+    const surface = random() < 0.9 ? 1 : 0.6 + random() * 0.4;
+    const point = center.clone().add(lateral.clone().multiplyScalar(across * surface)).add(dorsal.clone().multiplyScalar(depth * surface));
+    push(point, normal, { curl: p });
+    // Fingernail on the back of the last segment.
+    if (p > 0.8 && p < 0.97 && Math.sin(angle) > 0.55 && Math.abs(Math.cos(angle)) < 0.55 && random() < 0.7) {
+      push(point.clone().add(dorsal.clone().multiplyScalar(0.012)), normal, { size: 1.15, curl: p, nail: 1 });
     }
   }
-  // Brighter dots on the knuckles.
-  for (const joint of joints.slice(1, -1)) {
-    for (let i = 0; i < 8; i++) push(joint.clone().add(randomUnit().multiplyScalar(r0 * 0.35)), 1.7, fade(0), flow[0]);
+}
+
+// Dots over a rounded box (superellipsoid): the palm, and the pad under the thumb.
+function blob({ center, size }, count, push) {
+  for (let i = 0; i < count; i++) {
+    const n = randomUnit();
+    const e = 2.6;
+    const scale = (Math.abs(n.x) ** e + Math.abs(n.y) ** e + Math.abs(n.z) ** e) ** (-1 / e);
+    const point = v(n.x * size.x, n.y * size.y, n.z * size.z).multiplyScalar(scale * (random() < 0.92 ? 1 : 0.75)).add(center);
+    const normal = v(n.x / size.x, n.y / size.y, n.z / size.z).normalize();
+    push(point, normal);
+  }
+}
+
+function arm(push) {
+  const curve = new THREE.CatmullRomCurve3(ARM);
+  for (let i = 0; i < 2200; i++) {
+    const t = random();
+    const center = curve.getPointAt(t);
+    const tangent = curve.getTangentAt(t);
+    const a = (Math.abs(tangent.y) < 0.9 ? v(0, 1, 0) : v(1, 0, 0)).cross(tangent).normalize();
+    const b = tangent.clone().cross(a).normalize();
+    const angle = random() * Math.PI * 2;
+    const radius = 0.5 + 0.12 * t;
+    const normal = a.clone().multiplyScalar(Math.cos(angle) * 1.15).add(b.clone().multiplyScalar(Math.sin(angle) * 0.85)).normalize();
+    const point = center.clone().add(a.multiplyScalar(Math.cos(angle) * radius * 1.15)).add(b.multiplyScalar(Math.sin(angle) * radius * 0.85));
+    push(point, normal, { fade: Math.max(0, 1 - t * 1.05) ** 1.3 });
   }
 }
 
 function buildHand(mirror) {
-  const positions = [];
-  const sizes = [];
-  const fades = [];
-  const seeds = [];
-  const flows = [];
-  const push = (point, size = 1, fade = 1, flow = 0.3) => {
-    positions.push(mirror ? -point.x : point.x, point.y, point.z);
-    sizes.push(size * (0.85 + Math.random() * 0.3));
-    fades.push(fade);
-    seeds.push(Math.random());
-    flows.push(flow);
-  };
-  for (const finger of FINGERS) sampleTube(finger.joints, finger.r, push);
-  // Palm: a dotted grid on both sheets, closed by an outline.
-  const inside = (y, z) => ((y - PALM.center.y) / PALM.ry) ** 2 + ((z - PALM.center.z) / PALM.rz) ** 2;
-  for (let y = -PALM.ry; y <= PALM.ry; y += 0.075) {
-    for (let z = -PALM.rz; z <= PALM.rz; z += 0.075) {
-      const py = PALM.center.y + y;
-      const pz = PALM.center.z + z;
-      if (inside(py, pz) > 1) continue;
-      const flow = 0.2 + 0.15 * (1 - (pz - PALM.center.z + PALM.rz) / (2 * PALM.rz));
-      for (const sheet of [-1, 1]) push(v(PALM.center.x + sheet * PALM.thick, py, pz).add(randomUnit().multiplyScalar(0.01)), 1, 1, flow);
-    }
-  }
-  for (let k = 0; k < 140; k++) {
-    const angle = k / 140 * Math.PI * 2;
-    for (const x of [-1, 0, 1]) push(v(PALM.center.x + x * PALM.thick, PALM.center.y + Math.cos(angle) * PALM.ry, PALM.center.z + Math.sin(angle) * PALM.rz), 1.2, 1, 0.25);
-  }
-  sampleTube(ARM.joints, ARM.r, push, { flow: [0.2, -0.4], fade: t => Math.max(0, 1 - t * 0.95) ** 1.2, spacing: 0.1 });
+  const { data, push } = createBuffers(mirror);
+  for (const f of FINGERS) finger(f, push);
+  blob(PALM, 5200, push);
+  blob(THENAR, 900, push);
+  arm(push);
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('aSize', new THREE.Float32BufferAttribute(sizes, 1));
-  geometry.setAttribute('aFade', new THREE.Float32BufferAttribute(fades, 1));
-  geometry.setAttribute('aSeed', new THREE.Float32BufferAttribute(seeds, 1));
-  geometry.setAttribute('aFlow', new THREE.Float32BufferAttribute(flows, 1));
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.position, 3));
+  geometry.setAttribute('aNormal', new THREE.Float32BufferAttribute(data.normal, 3));
+  geometry.setAttribute('aSize', new THREE.Float32BufferAttribute(data.size, 1));
+  geometry.setAttribute('aFade', new THREE.Float32BufferAttribute(data.fade, 1));
+  geometry.setAttribute('aSeed', new THREE.Float32BufferAttribute(data.seed, 1));
+  geometry.setAttribute('aCurl', new THREE.Float32BufferAttribute(data.curl, 1));
+  geometry.setAttribute('aNail', new THREE.Float32BufferAttribute(data.nail, 1));
   return geometry;
 }
 
 const vertexShader = `
-  attribute float aSize; attribute float aFade; attribute float aSeed; attribute float aFlow;
-  uniform float uTime; uniform float uPixel; uniform float uIntensity;
-  varying float vAlpha;
+  attribute vec3 aNormal; attribute float aSize; attribute float aFade;
+  attribute float aSeed; attribute float aCurl; attribute float aNail;
+  uniform float uTime; uniform float uPixel; uniform float uIntensity; uniform vec3 uAnchor;
+  varying float vAlpha; varying float vNail; varying float vTone;
   void main() {
-    vec3 p = position;
     float t = uTime;
-    // Slow flowing drift so the hand looks alive, not frozen.
-    p += 0.011 * vec3(
-      sin(t * 1.7 + aSeed * 6.283 + p.y * 3.1),
-      sin(t * 1.3 + aSeed * 12.1 + p.z * 2.7),
-      sin(t * 1.9 + aSeed * 4.2 + p.x * 3.3));
+    // Breathing: the whole hand swells very slightly; a soft pulse runs down each finger.
+    vec3 p = uAnchor + (position - uAnchor) * (1.0 + 0.006 * sin(t * 1.15));
+    p += aNormal * 0.01 * sin(t * 1.7 - aCurl * 4.0);
+    p += 0.004 * vec3(sin(t * 1.3 + aSeed * 40.0), sin(t * 1.1 + aSeed * 23.0), sin(t * 1.7 + aSeed * 31.0));
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-    // A soft glow that flows from the wrist out to the fingertips.
-    float wave = 0.5 + 0.5 * sin(aFlow * 9.0 - t * 2.4);
-    gl_PointSize = aSize * uPixel * (1.45 + 0.55 * wave);
-    vAlpha = aFade * uIntensity * (0.45 + 0.55 * wave) * (0.85 + 0.15 * sin(t * 3.0 + aSeed * 40.0));
+    // Rim light: dots on the outline glow more, so the form reads as rounded skin.
+    vec3 n = normalize(normalMatrix * aNormal);
+    float rim = 1.0 - abs(n.z);
+    gl_PointSize = aSize * uPixel * (0.95 + 0.7 * rim) * (1.0 + 0.25 * aNail);
+    vAlpha = aFade * uIntensity * (0.55 + 0.75 * pow(rim, 1.4)) * (0.85 + 0.15 * sin(t * 2.0 + aSeed * 50.0));
+    vNail = aNail;
+    vTone = aSeed;
   }`;
 const fragmentShader = `
   uniform vec3 uColor; uniform float uDim;
-  varying float vAlpha;
+  varying float vAlpha; varying float vNail; varying float vTone;
   void main() {
     float d = length(gl_PointCoord - 0.5);
     if (d > 0.5) discard;
-    float a = smoothstep(0.5, 0.05, d) * vAlpha * uDim * 1.15;
-    gl_FragColor = vec4(uColor * a, a);
+    float a = smoothstep(0.5, 0.08, d) * vAlpha * uDim;
+    vec3 color = uColor * (0.82 + 0.3 * vTone);
+    color = mix(color, vec3(0.86, 1.0, 0.92), vNail * 0.55);
+    gl_FragColor = vec4(color * a, a);
   }`;
 
 export function createHands() {
@@ -128,7 +156,14 @@ export function createHands() {
   const shared = { uTime: { value: 0 }, uPixel: { value: 2 } };
   const hands = ['left', 'right'].map(side => {
     const geometry = buildHand(side === 'left');
-    const uniforms = { ...shared, uIntensity: { value: 0.5 }, uColor: { value: new THREE.Color(0x3dff8f) } };
+    const anchor = PALM.center.clone();
+    if (side === 'left') anchor.x *= -1;
+    const uniforms = {
+      ...shared,
+      uIntensity: { value: 0.78 },
+      uColor: { value: new THREE.Color(0x5cf2a0) },
+      uAnchor: { value: anchor },
+    };
     const material = (dim, depthFunc) => new THREE.ShaderMaterial({
       uniforms: { ...uniforms, uDim: { value: dim } },
       vertexShader, fragmentShader,
@@ -137,9 +172,9 @@ export function createHands() {
     const hand = new THREE.Group();
     // Dots in front of the cube are bright; dots behind it still show, faintly.
     hand.add(new THREE.Points(geometry, material(1, THREE.LessEqualDepth)));
-    hand.add(new THREE.Points(geometry, material(0.3, THREE.GreaterDepth)));
+    hand.add(new THREE.Points(geometry, material(0.24, THREE.GreaterDepth)));
     group.add(hand);
-    return { side, hand, uniforms, held: false, target: 0.5 };
+    return { side, hand, uniforms, held: false, target: 0.6 };
   });
   const rest = new THREE.Quaternion();
   let last = 0;
@@ -147,7 +182,7 @@ export function createHands() {
   return {
     group,
     setActive(which) {
-      for (const hand of hands) hand.target = which === 'both' || which === hand.side ? 1.15 : 0.72;
+      for (const hand of hands) hand.target = which === 'both' || which === hand.side ? 1.25 : 0.78;
     },
     // Rotate a hand around the cube with the layer it is turning.
     hold(which, axis, angle) {

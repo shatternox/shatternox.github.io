@@ -218,7 +218,7 @@ export function createViewer(container) {
     const width = container.clientWidth || 1;
     const height = container.clientHeight || 1;
     const ratio = width / height;
-    const vertical = Math.max(3.05, 2.95 / ratio);
+    const vertical = Math.max(3.45, 3.3 / ratio);
     camera.left = -vertical * ratio;
     camera.right = vertical * ratio;
     camera.top = vertical;
@@ -229,10 +229,36 @@ export function createViewer(container) {
   };
   new ResizeObserver(resize).observe(container);
 
-  function view() {
-    pose = defaultView.clone();
-    up.set(0, 1, 0);
-    draw();
+  // Glide the camera to the default view, or straight at one face.
+  let cameraAnimation = 0;
+  const faceViews = {
+    F: [[0, 0, 1], [0, 1, 0]], R: [[1, 0, 0], [0, 1, 0]], B: [[0, 0, -1], [0, 1, 0]],
+    L: [[-1, 0, 0], [0, 1, 0]], U: [[0, 1, 0], [0, 0, -1]], D: [[0, -1, 0], [0, 0, 1]],
+  };
+  function view(face = '') {
+    const [toPose, toUp] = face
+      ? [new THREE.Vector3(...faceViews[face][0]).multiplyScalar(11).add(new THREE.Vector3(0.001, 0.001, 0.001)), new THREE.Vector3(...faceViews[face][1])]
+      : [defaultView.clone(), new THREE.Vector3(0, 1, 0)];
+    cancelAnimationFrame(cameraAnimation);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches || pose.distanceTo(toPose) < 1e-3) {
+      pose = toPose;
+      up = toUp;
+      draw();
+      return;
+    }
+    const fromPose = pose.clone();
+    const fromUp = up.clone();
+    const started = performance.now();
+    const frame = now => {
+      const t = Math.min(1, (now - started) / 520);
+      const e = t * t * (3 - 2 * t);
+      pose = new THREE.Vector3().lerpVectors(fromPose, toPose, e).setLength(fromPose.length() * (1 - e) + toPose.length() * e);
+      up = new THREE.Vector3().lerpVectors(fromUp, toUp, e).normalize();
+      if (t === 1) { pose = toPose; up = toUp; }
+      draw();
+      if (t < 1) cameraAnimation = requestAnimationFrame(frame);
+    };
+    cameraAnimation = requestAnimationFrame(frame);
   }
 
   surface.addEventListener('pointerdown', event => {
@@ -267,14 +293,15 @@ export function createViewer(container) {
     idle = requestAnimationFrame(tick);
   };
   new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting; tick(); }).observe(container);
-  view();
+  pose = defaultView.clone();
+  draw();
   tick();
   return {
     setHands(on) { handsOn = on; draw(); tick(); },
     view,
     setState,
     get motion() { return motion; },
-    get turned() { return !pose.equals(defaultView); },
+    get turned() { return pose.distanceTo(defaultView) > 1e-3; },
     // World point to pixel position inside the container.
     project(x, y, z) {
       const point = new THREE.Vector3(x, y, z).project(camera);
