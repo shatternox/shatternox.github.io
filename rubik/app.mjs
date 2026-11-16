@@ -6,6 +6,8 @@ import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs';
 import { createGuide } from './guide.mjs';
 import { createCoach } from './coach.mjs';
 import { sfx, confetti } from './sfx.mjs';
+import { music } from './music.mjs';
+import { renderMap } from './tree.mjs';
 
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -64,12 +66,18 @@ function setMode(next, scroll = true) {
   mode = next;
   document.body.dataset.mode = next;
   for (const tab of document.querySelectorAll('[data-mode-tab]')) tab.setAttribute('aria-selected', String(tab.dataset.modeTab === next));
-  history.replaceState(null, '', next === 'learn' ? '#learn' : '#solve');
+  history.replaceState(null, '', `#${next === 'coach' ? 'solve' : next}`);
   session++;
   playing = false;
   busy = false;
   if (next === 'coach') coach.render();
-  else {
+  else if (next === 'map') {
+    coach.stop();
+    renderMap($('map'), {
+      current: coach.position,
+      onPick: (stage, key) => { sfx.tick(); setMode('coach', false); coach.goTo(stage, key); $('app').scrollIntoView({ behavior: smooth() }); },
+    });
+  } else {
     coach.stop();
     if (run) start(run.frames[0].state, run.frames[0].yaw, run.options);
     else startStage(0);
@@ -499,6 +507,15 @@ $('cta-solve').addEventListener('click', () => { sfx.tick(); if (mode === 'coach
 $('cta-learn').addEventListener('click', () => { sfx.tick(); if (mode === 'learn') $('app').scrollIntoView({ behavior: smooth() }); else setMode('learn'); });
 $('restart-coach').addEventListener('click', () => { sfx.tick(); coach.restart(); });
 document.addEventListener('open-learn', () => setMode('learn'));
+document.addEventListener('open-map', () => setMode('map'));
+function updateMusic() {
+  $('music').setAttribute('aria-pressed', String(music.playing));
+  $('music').textContent = music.playing ? '♫ Music on' : '♫ Music';
+}
+$('music').addEventListener('click', () => { music.toggle(); updateMusic(); });
+// Browsers only allow sound after a tap, so resume music on the first one.
+if (music.wanted) document.addEventListener('pointerdown', () => { music.start(); updateMusic(); }, { once: true });
+updateMusic();
 $('open-notation').addEventListener('click', () => $('notation').showModal());
 $('reset-view').addEventListener('click', () => view?.view());
 $('show-all').addEventListener('change', event => { showAll = event.target.checked; if (mode === 'learn') updateModel(); });
@@ -534,7 +551,7 @@ function buildLogo() {
 }
 buildLogo();
 
-setMode(location.hash === '#learn' ? 'learn' : 'coach', false);
+setMode(location.hash === '#learn' ? 'learn' : location.hash === '#map' ? 'map' : 'coach', false);
 import('./viewer.mjs').then(({ createViewer }) => {
   view = createViewer($('canvas'));
   guide.attach(view);

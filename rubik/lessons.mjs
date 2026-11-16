@@ -12,10 +12,10 @@ export const lessons = [
     tip: 'Spot above already white? Turn the top first so you don’t knock it off.',
     art: 'iso',
     cases: {
-      middle: ['Middle layer', 'Turn its side once to lift it up.'],
-      bottom: ['Bottom, white on the side', 'Lift it to the middle, then up.'],
-      down: ['Bottom, white facing down', 'Turn that side twice.'],
-      top: ['Top, white on the side', 'Drop it to the middle, then lift it back up.'],
+      middle: ['White facing you, middle row', 'Turn its side once to lift it up.'],
+      bottom: ['White facing you, bottom row', 'Lift it to the middle, then up.'],
+      down: ['White on the bottom face', 'Turn that side twice.'],
+      top: ['White facing you, top row', 'Drop it to the middle, then lift it back up.'],
     },
   },
   {

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080c0a">
-  <meta name="description" content="Solve your own Rubik’s Cube with zero experience. Show the app your cube, then copy one move at a time with a 3D guide, hands, arrows and sound.">
+  <meta name="description" content="Solve your own Rubik’s Cube with zero experience. Tap the pattern you see, copy the moves. Every case mapped out, with a 3D guide, hands, sound and music.">
   <link rel="canonical" href="https://shatternox.github.io/rubik/">
   <link rel="icon" href="../assets/favicon.ico" sizes="any">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,7 +36,7 @@
       <div class="hero-text">
         <p class="eyebrow">Rubik’s Cube · beginner method</p>
         <h1 id="title">Solve your cube.<br><em>No experience needed.</em></h1>
-        <p class="lede">Show me your cube, then copy one move at a time. A 3D cube, glowing hands and arrows show every turn.</p>
+        <p class="lede">Look at your cube, tap the pattern that matches, copy the moves. Every case is mapped out, and a 3D cube with glowing hands shows each turn.</p>
         <div class="hero-actions">
           <button id="cta-solve" class="button primary">Solve my cube →</button>
           <button id="cta-learn" class="button">Learn the 8 steps</button>
@@ -49,16 +49,19 @@
       <div class="app-bar">
         <div class="tabs" role="tablist" aria-label="Mode">
           <button role="tab" data-mode-tab="coach" aria-selected="true">01 · Solve my cube</button>
-          <button role="tab" data-mode-tab="learn" aria-selected="false">02 · Learn the steps</button>
+          <button role="tab" data-mode-tab="map" aria-selected="false">02 · Solving map</button>
+          <button role="tab" data-mode-tab="learn" aria-selected="false">03 · Learn the steps</button>
         </div>
         <div class="app-tools">
           <button class="tool coach-only" id="restart-coach">Start over</button>
           <button class="tool" id="open-notation">Move letters</button>
+          <button class="tool" id="music" aria-pressed="false">♫ Music</button>
           <button class="tool icon" id="sound" aria-pressed="true">🔊</button>
         </div>
       </div>
+      <div class="map-view map-only" id="map" aria-label="Solving map"></div>
       <nav class="steps learn-only" id="steps" aria-label="Steps"></nav>
-      <div class="workbench">
+      <div class="workbench no-map">
         <section class="player" id="player" aria-label="3D cube">
           <div class="stage-view" id="viewer">
             <div class="view-top">
