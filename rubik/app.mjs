@@ -1,15 +1,15 @@
-import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs?v=202611161447';
-import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs?v=202611161447';
-import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161447';
-import { examples } from './examples.mjs?v=202611161447';
-import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs?v=202611161447';
-import { createGuide } from './guide.mjs?v=202611161447';
-import { orientFromYaw, modelFace } from './moves.mjs?v=202611161447';
-import { createCoach } from './coach.mjs?v=202611161447';
-import { sfx } from './sfx.mjs?v=202611161447';
-import { music } from './music.mjs?v=202611161447';
-import { renderMap, caseCard } from './map.mjs?v=202611161447';
-import { methodList, getMethod } from './methods.mjs?v=202611161447';
+import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs?v=202611161501';
+import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs?v=202611161501';
+import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161501';
+import { examples } from './examples.mjs?v=202611161501';
+import { moveIcon, describeMove, isoCube, net } from './art.mjs?v=202611161501';
+import { createGuide } from './guide.mjs?v=202611161501';
+import { orientFromYaw, modelFace } from './moves.mjs?v=202611161501';
+import { createCoach } from './coach.mjs?v=202611161501';
+import { sfx } from './sfx.mjs?v=202611161501';
+import { music } from './music.mjs?v=202611161501';
+import { renderMap, caseCard } from './map.mjs?v=202611161501';
+import { methodList, getMethod } from './methods.mjs?v=202611161501';
 
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -362,7 +362,9 @@ function caseArt(stage, key) {
       if (block.kind === 'alg') break;
       frame = play(frame.state, frame.yaw, block.moves);
     }
-    html = topView(frame.state, { palette, colors: standard, show: relevance(stage, frame.state), yaw: frame.yaw });
+    // The same 3D cube as everywhere else: front-right and back-left.
+    const show = relevance(stage, frame.state);
+    html = `<span class="thumb-pair">${[frame.yaw, (frame.yaw + 2) % 4].map(y => isoCube(frame.state, { palette, colors: standard, show, yaw: y })).join('')}</span>`;
   } else {
     const where = pieceLocation(state, plan.target);
     const focus = where ? tiles.map((tile, index) => tile.position.join() === where.join() ? index : -1).filter(index => index >= 0) : [];
@@ -756,7 +758,7 @@ function buildLogo() {
 buildLogo();
 
 setMode(location.hash === '#learn' ? 'learn' : location.hash === '#map' ? 'map' : 'coach', false);
-import('./viewer.mjs?v=202611161447').then(({ createViewer }) => {
+import('./viewer.mjs?v=202611161501').then(({ createViewer }) => {
   view = createViewer($('canvas'));
   guide.attach(view);
   $('fallback').hidden = true;

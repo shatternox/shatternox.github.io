@@ -2,16 +2,16 @@
 // The beginner method comes from tree.mjs; CFOP is built from the verified
 // algorithm sets in algs.mjs. Case pictures are generated from the
 // algorithms themselves, so a picture and its moves can never disagree.
-import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161447';
-import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161447';
-import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161447';
-import { lessons, algNames } from './lessons.mjs?v=202611161447';
-import { tree, goalState } from './tree.mjs?v=202611161447';
+import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161501';
+import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161501';
+import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161501';
+import { lessons, algNames } from './lessons.mjs?v=202611161501';
+import { tree, goalState } from './tree.mjs?v=202611161501';
 import {
   OLL, PLL, F2L, CROSS, CMLL, LSE_EO, LSE_ULUR, LSE_L4E, EDGE_DL, EDGE_DB, SB_EDGE, SB_PAIR, SB_BACK, FB_PAIR, FB_BACK,
   ZZ_EO, ZZ_LINE, ZZ_EDGE, RU_PAIR, RU_BACK, PETRUS_BL, PETRUS_DF, PETRUS_FL, PETRUS_EO, STUCK, EO_BRING,
-} from './algs.mjs?v=202611161447';
-import { goodEdge } from './verify.mjs?v=202611161447';
+} from './algs.mjs?v=202611161501';
+import { goodEdge } from './verify.mjs?v=202611161501';
 
 const SIDE_WORDS = { F: 'front', R: 'right', B: 'back', L: 'left' };
 const U = k => [[], ['U'], ['U2'], ["U'"]][((k % 4) + 4) % 4];
@@ -159,7 +159,7 @@ function ollStep(subset) {
     ],
     look: subset ? 'Count the yellow corners facing up, and see where the side yellow stickers point.' : 'What do the yellow edges make on top: a dot, a line, an L or a cross? Then look at the corners.',
     done: 'The whole top is yellow',
-    hint: 'Turn the top until your yellow pattern matches the picture. The bottom edge of the picture is the side facing you.',
+    hint: 'Turn the top until your yellow pattern matches the pictures (the first one shows the side facing you as FRONT).',
     cases: keys.map(n => {
       const c = fromAlg(`o${n}`, OLL[n], { name: `OLL ${n}` });
       const group = subset ? [] : [edgeShape(c.start.state), `${cornersUp(c.start.state)} corner${cornersUp(c.start.state) === 1 ? '' : 's'} up`];

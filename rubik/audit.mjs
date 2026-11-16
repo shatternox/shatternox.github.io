@@ -4,11 +4,11 @@
 //
 // A situation "matches" when, after the hold/turn the case tells you to do
 // (turn the top, turn the whole cube, …), it looks like the case's picture.
-import { solved, pieces, applyMoves, tiles } from './cube.mjs?v=202611161447';
-import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161447';
-import { SETS, goodEdge } from './verify.mjs?v=202611161447';
-import * as A from './algs.mjs?v=202611161447';
-import { getMethod, methodList } from './methods.mjs?v=202611161447';
+import { solved, pieces, applyMoves, tiles } from './cube.mjs?v=202611161501';
+import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161501';
+import { SETS, goodEdge } from './verify.mjs?v=202611161501';
+import * as A from './algs.mjs?v=202611161501';
+import { getMethod, methodList } from './methods.mjs?v=202611161501';
 
 const EDGE_SLOTS = Object.keys(pieces).filter(n => n.length === 2);
 const CORNER_SLOTS = Object.keys(pieces).filter(n => n.length === 3);
@@ -319,7 +319,7 @@ for (const { id } of methodList) {
   report('beginner', 'Middle layer', possible, covered, mm);
 
   // Last layer: the beginner planner's own case names must all have pictures.
-  const { planNext } = await import('./method.mjs?v=202611161447');
+  const { planNext } = await import('./method.mjs?v=202611161501');
   ll ??= llStates();
   for (const stage of [4, 5, 6, 7]) {
     const keys = new Set(b.steps[stage].cases.map(c => c.key));
@@ -396,7 +396,7 @@ for (const { id } of methodList) {
 // 1. the pieces a case is about are drawn, in color, at the start and in the result;
 // 2. pictures in the same group look different from each other.
 {
-  const { visibleStickers, pictureViews, focusGroups } = await import('./map.mjs?v=202611161447');
+  const { visibleStickers, pictureViews, focusGroups } = await import('./map.mjs?v=202611161501');
   for (const { id } of methodList) {
     const m = getMethod(id);
     m.steps.forEach((step, si) => {
@@ -410,6 +410,15 @@ for (const { id } of methodList) {
           for (const stickers of focusGroups(c, frame.state)) {
             if (!stickers.some(i => visible.has(i))) problems.push(`${c.label} (piece or its white/yellow side not visible in the ${when} picture)`);
           }
+        }
+        // Last-layer pictures (3D, front-right + back-left) show the whole top
+        // and the top row of all four sides, wherever they matter (not grey).
+        if (step.art === 'top') {
+          const need = [...Array(9).keys(), ...['F', 'R', 'B', 'L'].flatMap(f => [0, 1, 2].map(k => 'URFDLB'.indexOf(f) * 9 + k))];
+          const show = step.mask(c.start.state);
+          const visible = visibleStickers(m, si, c, c.start);
+          const hiddenNeed = need.filter(i => show[i] && !visible.has(i));
+          if (hiddenNeed.length) problems.push(`${c.label} (top layer not fully visible)`);
         }
         const views = pictureViews(m, si, c, c.start).views;
         const sig = JSON.stringify(views) + '|' + [...visibleStickers(m, si, c, c.start)].sort((x, y) => x - y).map(i => `${i}${c.start.state[i]}`).join('');
@@ -458,6 +467,17 @@ for (const { id } of methodList) {
     const missing = [...found].filter(k => !have.has(k));
     report('roux', step.name, found.size, found.size - missing.length, missing.slice(0, 5));
   }
+}
+
+// ---------- One look everywhere: no flat top-down diagrams ----------
+{
+  const { readFileSync } = await import('node:fs');
+  const files = ['map.mjs', 'app.mjs', 'coach.mjs', 'tree.mjs', 'methods.mjs'];
+  const flat = files.filter(f => /topView\(/.test(readFileSync(new URL(f, import.meta.url), 'utf8')));
+  report('all', 'Pictures are the 3D cube everywhere', files.length, files.length - flat.length, flat.map(f => `${f} draws a flat diagram`));
+  // No text left over from the flat diagrams.
+  const stale = files.filter(f => /bottom edge of (each|the) picture|▼/.test(readFileSync(new URL(f, import.meta.url), 'utf8')));
+  report('all', 'No text about flat diagrams', files.length, files.length - stale.length, stale.map(f => `${f} still describes the flat diagram`));
 }
 
 let bad = 0;

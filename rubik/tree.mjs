@@ -1,11 +1,10 @@
 // The solving map: for every step, where to look, every case you can see,
 // and the moves for it, already held the right way. Pure data plus drawings,
 // shared by the coach and the map view.
-import { solved, applyMoves, tokens, inverse, tiles, inspectCube } from './cube.mjs?v=202611161447';
-import { planNext, play, relevance, pieceLocation, currentStage, WHITE_EDGES } from './method.mjs?v=202611161447';
-import { lessons, standard, palette } from './lessons.mjs?v=202611161447';
-import { examples } from './examples.mjs?v=202611161447';
-import { isoCube, topView } from './art.mjs?v=202611161447';
+import { solved, applyMoves, tokens, inverse, tiles, inspectCube } from './cube.mjs?v=202611161501';
+import { planNext, play, relevance, pieceLocation, currentStage, WHITE_EDGES } from './method.mjs?v=202611161501';
+import { lessons, standard, palette } from './lessons.mjs?v=202611161501';
+import { examples } from './examples.mjs?v=202611161501';
 
 // A cube with a finished daisy: every white edge on top, white facing up.
 const daisy = applyMoves(solved, tokens('F2 R2 B2 L2'));
@@ -123,59 +122,4 @@ export function goalState(stage) {
     }
   }
   return goals[stage] ?? solved;
-}
-
-// ---------- Drawings ----------
-const thumbs = new Map();
-export function caseThumb(stage, key) {
-  const id = `${stage}:${key}`;
-  if (thumbs.has(id)) return thumbs.get(id);
-  const c = findCase(stage, key);
-  const { state, yaw } = c.start;
-  let html;
-  if (lessons[stage].art === 'top') {
-    html = topView(state, { palette, colors: standard, show: relevance(stage, state), yaw });
-  } else {
-    const where = pieceLocation(state, c.target);
-    const focus = where ? tiles.map((tile, i) => tile.position.join() === where.join() ? i : -1).filter(i => i >= 0) : [];
-    html = isoCube(state, { palette, colors: standard, show: relevance(stage, state), yaw, focus });
-  }
-  thumbs.set(id, html);
-  return html;
-}
-export function goalThumb(stage) {
-  const state = goalState(stage);
-  return lessons[stage].art === 'top'
-    ? topView(state, { palette, colors: standard, show: relevance(stage, state) })
-    : isoCube(state, { palette, colors: standard, show: relevance(stage, state) });
-}
-export function movesText(c) {
-  const parts = [];
-  for (const block of c.blocks) {
-    const text = block.moves.join(' ');
-    if (parts.at(-1)?.text === text) parts.at(-1).count++;
-    else parts.push({ text, count: 1 });
-  }
-  return parts.map(({ text, count }) => (count > 1 ? `(${text})×${count}` : text)).join('  ').replaceAll("'", '′');
-}
-
-// The whole method as a tree: step → where to look → each case → its moves.
-export function renderMap(container, { current, onPick }) {
-  container.innerHTML = `<ol class="map">${tree.map(step => `
-    <li class="map-step ${current?.stage === step.stage ? 'now' : current && step.stage < current.stage ? 'done' : ''}">
-      <div class="map-node">
-        <span class="map-num">${String(step.stage + 1).padStart(2, '0')}</span>
-        <div><b>${step.name}</b><p>${step.look}</p></div>
-      </div>
-      <ul class="map-branches">
-        ${step.cases.map(c => `<li><button type="button" class="map-case ${current?.stage === step.stage && current?.key === c.key ? 'here' : ''}" data-stage="${step.stage}" data-key="${c.key}">
-          <span class="map-thumb">${caseThumb(step.stage, c.key)}</span>
-          <span class="map-label">${c.label}</span>
-          <code>${movesText(c)}</code>
-          <span class="map-loop">↻ look again</span>
-        </button></li>`).join('')}
-        <li><div class="map-exit"><span class="map-thumb">${goalThumb(step.stage)}</span><span><b>✓ ${step.done}</b>${step.stage < 7 ? `<small>→ step ${String(step.stage + 2).padStart(2, '0')}</small>` : ''}</span></div></li>
-      </ul>
-    </li>`).join('')}</ol>`;
-  container.querySelectorAll('.map-case').forEach(node => node.addEventListener('click', () => onPick(Number(node.dataset.stage), node.dataset.key)));
 }

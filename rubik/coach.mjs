@@ -1,13 +1,13 @@
 // The coach: takes someone who has never solved a cube from "pick it up" to
 // solved, one move at a time, on their own cube.
-import { solved, applyMoves, showMove, inverse } from './cube.mjs?v=202611161447';
-import { planNext, play, currentStage, ALGS } from './method.mjs?v=202611161447';
-import { standard, lessons, algNames } from './lessons.mjs?v=202611161447';
-import { moveIcon, describeMove } from './art.mjs?v=202611161447';
-import { createCubeInput } from './scan.mjs?v=202611161447';
-import { sfx } from './sfx.mjs?v=202611161447';
-import { getMethod } from './methods.mjs?v=202611161447';
-import { thumb, goalThumb, movesText } from './map.mjs?v=202611161447';
+import { solved, applyMoves, showMove, inverse } from './cube.mjs?v=202611161501';
+import { planNext, play, currentStage, ALGS } from './method.mjs?v=202611161501';
+import { standard, lessons, algNames } from './lessons.mjs?v=202611161501';
+import { moveIcon, describeMove } from './art.mjs?v=202611161501';
+import { createCubeInput } from './scan.mjs?v=202611161501';
+import { sfx } from './sfx.mjs?v=202611161501';
+import { getMethod } from './methods.mjs?v=202611161501';
+import { thumb, goalThumb, movesText } from './map.mjs?v=202611161501';
 
 const keyFor = id => (id === 'beginner' ? 'rubik-coach-v1' : `rubik-coach-v1-${id}`);
 const introMoves = ['R', "R'", 'U', "U'"];
@@ -330,7 +330,7 @@ export function createCoach(root, cube, methodId = 'beginner') {
         ${options}
         ${path.length ? '' : `<button class="pick-case pick-done" data-done-step><span class="art">${goalThumb(method, stage)}</span><span class="pick-name">✓ None left</span><small>${step.done}</small></button>`}
       </div>
-      <p class="note">Grey squares don’t matter for this step.${step.art === 'iso' ? ' The gold outline marks the pieces to look for.' : ' The bottom edge of each picture is the side facing you.'} The colors in the pictures are just an example: match the pattern, not the exact colors.</p>
+      <p class="note">Grey squares don’t matter for this step.${step.art === 'iso' ? ' The gold outline marks the pieces to look for.' : ' Each case is shown twice: from the front-right and from the back-left, so you see all four sides.'} The colors in the pictures are just an example: match the pattern, not the exact colors.</p>
       <button class="link" data-overview>← Back to the step overview</button>`);
     wireStepBar();
     on('[data-overview]', () => { sfx.tick(); set({ phase: 'stage' }); });

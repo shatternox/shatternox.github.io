@@ -1,9 +1,9 @@
 // Pictures of cases, and the solving map: a method drawn as a tree of
 // steps → recognition groups → cases → moves.
-import { tiles, showMove } from './cube.mjs?v=202611161447';
-import { palette, standard } from './lessons.mjs?v=202611161447';
-import { isoCube, topView, moveIcon, moveHand, describeMove } from './art.mjs?v=202611161447';
-import { toAbsolute } from './method.mjs?v=202611161447';
+import { tiles, showMove } from './cube.mjs?v=202611161501';
+import { palette, standard } from './lessons.mjs?v=202611161501';
+import { isoCube, moveIcon, moveHand, describeMove } from './art.mjs?v=202611161501';
+import { toAbsolute } from './method.mjs?v=202611161501';
 
 const cache = new Map();
 function focusIndices(c, state) {
@@ -48,7 +48,9 @@ function baseYaws(method, step, c, frame) {
 export function pictureViews(method, stepIndex, c, frame) {
   const step = method.steps[stepIndex];
   const { yaw, hold } = baseYaws(method, step, c, frame);
-  if (step.art === 'top') return { hold, views: [{ yaw }] };
+  // Last-layer steps: the 3D cube from the front-right and from the back-left,
+  // so the top and the top row of all four sides show.
+  if (step.art === 'top') return { hold, views: [{ yaw }, { yaw: (yaw + 2) % 4 }] };
   const show = step.mask(frame.state);
   const groups = focusGroups(c, frame.state);
   if (!groups.length) return { hold, views: [{ yaw }] };
@@ -77,9 +79,7 @@ export function visibleStickers(method, stepIndex, c, frame) {
   const show = step.mask(frame.state);
   const out = new Set();
   for (const v of pictureViews(method, stepIndex, c, frame).views) {
-    if (step.art === 'top') {
-      for (const i of [...Array(9).keys(), ...['F', 'R', 'B', 'L'].flatMap(f => [0, 1, 2].map(k => faceStart(f) + k))]) if (show[i]) out.add(i);
-    } else if (v.below) {
+    if (v.below) {
       Z2.forEach((to, from) => { if (BELOW.has(to) && show[from]) out.add(from); });
     } else {
       for (const i of drawnIso(v.yaw)) if (show[i]) out.add(i);
@@ -98,9 +98,6 @@ export function thumb(method, stepIndex, c, { labels = false, after = false } = 
   const show = step.mask(state);
   const { hold, views } = pictureViews(method, stepIndex, c, frame);
   const pics = views.map(v => {
-    if (step.art === 'top') {
-      return topView(state, { palette, colors: standard, show, yaw: v.yaw, labels: labels && { bottom: viewWord(v.yaw, hold, 'F') === 'FRONT' ? 'FACES YOU' : `${viewWord(v.yaw, hold, 'F')} SIDE` } });
-    }
     if (v.below) {
       // Upside down: the bottom is on top, the front stays in front, left and right swap.
       return `<span class="from-below">${isoCube(flip([...state]).join(''), { palette, colors: standard, show: flip(show), yaw: 0, focus: flip(tiles.map((_, i) => i)).filter((_, j) => focusIndices(c, state).includes(flip(tiles.map((_, k) => k)).indexOf(j))), labels: labels && { left: viewWord(0, hold, 'F'), right: viewWord(0, hold, 'L') } })}<small>seen from below</small></span>`;
@@ -114,7 +111,6 @@ export function thumb(method, stepIndex, c, { labels = false, after = false } = 
 // One sentence on where the picture is seen from.
 function viewText(method, step, c) {
   const stepIndex = method.steps.indexOf(step);
-  if (step.art === 'top') return 'Seen from above. The edge marked ▼ is the side facing you.';
   const { hold, views } = pictureViews(method, stepIndex, c, c.start);
   const left = viewWord(views[0].yaw, hold, 'F');
   const first = left === 'FRONT'
@@ -129,9 +125,10 @@ export function goalThumb(method, stepIndex) {
   if (cache.has(id)) return cache.get(id);
   const step = method.steps[stepIndex];
   const show = step.mask(step.goal);
+  const yaw = step.yaw ?? 0;
   const html = step.art === 'top'
-    ? topView(step.goal, { palette, colors: standard, show })
-    : isoCube(step.goal, { palette, colors: standard, show, yaw: step.yaw ?? 0 });
+    ? `<span class="thumb-pair">${[yaw, (yaw + 2) % 4].map(y => isoCube(step.goal, { palette, colors: standard, show, yaw: y })).join('')}</span>`
+    : isoCube(step.goal, { palette, colors: standard, show, yaw });
   cache.set(id, html);
   return html;
 }
