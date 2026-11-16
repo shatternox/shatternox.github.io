@@ -1,6 +1,6 @@
 // Small SVG drawings: move icons, case thumbnails.
-import { faces } from './cube.mjs';
-import { toAbsolute } from './method.mjs';
+import { faces } from './cube.mjs?v=202611160411';
+import { toAbsolute } from './method.mjs?v=202611160411';
 
 const GREY = '#4a554f';
 
@@ -25,44 +25,74 @@ function circular(clockwise, dashed) {
   return `<path d="M${x1},${y1} A${r},${r} 0 1 ${clockwise ? 1 : 0} ${x2},${y2}" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" ${dashed ? 'stroke-dasharray="3 4"' : ''}/>${arrowHead(x2, y2, tangent)}`;
 }
 
+// Which rows/columns of the front face move, and which way the arrow points.
+const ICON = {
+  U: { rows: [0], dir: 'left' }, u: { rows: [0, 1], dir: 'left' }, y: { rows: [0, 1, 2], dir: 'left' },
+  D: { rows: [2], dir: 'right' }, d: { rows: [1, 2], dir: 'right' }, E: { rows: [1], dir: 'right' },
+  R: { cols: [2], dir: 'up' }, r: { cols: [1, 2], dir: 'up' }, x: { cols: [0, 1, 2], dir: 'up' },
+  L: { cols: [0], dir: 'down' }, l: { cols: [0, 1], dir: 'down' }, M: { cols: [1], dir: 'down' },
+  F: { all: true, dir: 'cw' }, f: { all: true, dir: 'cw' }, z: { all: true, dir: 'cw' }, S: { all: true, dir: 'cw', dashed: true },
+  B: { none: true, dir: 'ccw', dashed: true }, b: { none: true, dir: 'ccw', dashed: true },
+};
+const FLIP = { left: 'right', right: 'left', up: 'down', down: 'up', cw: 'ccw', ccw: 'cw' };
+const at = index => 6 + index * 12.4 + 5.5;
+
 export function moveIcon(move) {
   const face = move[0];
+  const info = ICON[face] ?? ICON.U;
   const prime = move.endsWith("'");
   const double = move.endsWith('2');
+  const dir = prime ? FLIP[info.dir] : info.dir;
+  const lit = (row, col) => info.all || info.rows?.includes(row) || info.cols?.includes(col);
   const cells = [];
-  const lit = (row, col) => ({ U: row === 0, D: row === 2, R: col === 2, L: col === 0, F: true, B: false, y: true })[face];
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 3; col++) {
-      cells.push(`<rect x="${6 + col * 12.4}" y="${6 + row * 12.4}" width="11" height="11" rx="2.4" class="${lit(row, col) ? 'lit' : 'dim'}"/>`);
+      cells.push(`<rect x="${6 + col * 12.4}" y="${6 + row * 12.4}" width="11" height="11" rx="2.4" class="${!info.none && lit(row, col) ? 'lit' : 'dim'}"/>`);
     }
   }
   let arrow;
-  if (face === 'U' || face === 'y') arrow = prime ? straight(10, face === 'y' ? 24 : 12.5, 38, face === 'y' ? 24 : 12.5) : straight(38, face === 'y' ? 24 : 12.5, 10, face === 'y' ? 24 : 12.5);
-  if (face === 'D') arrow = prime ? straight(38, 37.3, 10, 37.3) : straight(10, 37.3, 38, 37.3);
-  if (face === 'R') arrow = prime ? straight(37.3, 10, 37.3, 38) : straight(37.3, 38, 37.3, 10);
-  if (face === 'L') arrow = prime ? straight(12.5, 38, 12.5, 10) : straight(12.5, 10, 12.5, 38);
-  if (face === 'F') arrow = circular(!prime, false);
-  if (face === 'B') arrow = circular(prime, true);
-  if (double && face !== 'F' && face !== 'B') arrow = arrow.replace('<path', '<path class="double"');
-  return `<svg class="move-icon move-${face}" viewBox="0 0 48 48" aria-hidden="true"><g class="grid">${cells.join('')}</g><g class="arrow">${arrow}</g>${double ? '<text x="41" y="45" class="times">2</text>' : ''}</svg>`;
+  if (dir === 'cw' || dir === 'ccw') arrow = circular(dir === 'cw', info.dashed);
+  else if (info.rows) {
+    const y = info.rows.reduce((a, r) => a + at(r), 0) / info.rows.length;
+    arrow = dir === 'left' ? straight(38, y, 10, y) : straight(10, y, 38, y);
+  } else {
+    const x = info.cols.reduce((a, c) => a + at(c), 0) / info.cols.length;
+    arrow = dir === 'up' ? straight(x, 38, x, 10) : straight(x, 10, x, 38);
+  }
+  const wholeCube = 'xyz'.includes(face);
+  return `<svg class="move-icon move-${face}${wholeCube ? ' whole' : ''}" viewBox="0 0 48 48" aria-hidden="true"><g class="grid">${cells.join('')}</g><g class="arrow">${arrow}</g>${double ? '<text x="41" y="45" class="times">2</text>' : ''}</svg>`;
 }
 
 // Plain-language instruction, including which hand does it.
+const WORDS = {
+  R: ['Right hand: turn the right side up', 'Right hand: turn the right side down'],
+  L: ['Left hand: turn the left side down', 'Left hand: turn the left side up'],
+  U: ['Right finger: push the top to the left', 'Left finger: push the top to the right'],
+  D: ['Left hand: turn the bottom to the right', 'Right hand: turn the bottom to the left'],
+  F: ['Turn the front clockwise, like a wheel to the right', 'Turn the front counterclockwise, like a wheel to the left'],
+  B: ['Reach behind: turn the back so its top goes left', 'Reach behind: turn the back so its top goes right'],
+  M: ['Middle slice down (the way L turns)', 'Middle slice up (the way R turns)'],
+  E: ['Middle layer to the right (the way D turns)', 'Middle layer to the left (the way U turns)'],
+  S: ['Middle slice clockwise (the way F turns)', 'Middle slice counterclockwise'],
+  r: ['Right two layers up', 'Right two layers down'],
+  l: ['Left two layers down', 'Left two layers up'],
+  u: ['Top two layers to the left', 'Top two layers to the right'],
+  d: ['Bottom two layers to the right', 'Bottom two layers to the left'],
+  f: ['Front two layers clockwise', 'Front two layers counterclockwise'],
+  b: ['Back two layers: top goes left', 'Back two layers: top goes right'],
+  x: ['Tilt the whole cube: the front comes up to the top', 'Tilt the whole cube: the top comes down to the front'],
+  y: ['Spin the whole cube: the right side comes to the front', 'Spin the whole cube: the left side comes to the front'],
+  z: ['Turn the whole cube clockwise, like a steering wheel', 'Turn the whole cube counterclockwise, like a steering wheel'],
+};
 export function describeMove(move) {
   const twice = move.endsWith('2');
   const prime = move.endsWith("'");
-  const text = {
-    R: ['Right hand: turn the right side up', 'Right hand: turn the right side down'],
-    L: ['Left hand: turn the left side down', 'Left hand: turn the left side up'],
-    U: ['Right finger: push the top to the left', 'Left finger: push the top to the right'],
-    D: ['Left hand: turn the bottom to the right', 'Right hand: turn the bottom to the left'],
-    F: ['Turn the front clockwise, like a wheel to the right', 'Turn the front counterclockwise, like a wheel to the left'],
-    B: ['Reach behind: turn the back so its top goes left', 'Reach behind: turn the back so its top goes right'],
-    y: ['Spin the whole cube: the right side comes to the front', 'Spin the whole cube: the left side comes to the front'],
-  }[move[0]][prime ? 1 : 0];
+  const text = (WORDS[move[0]] ?? WORDS.U)[prime ? 1 : 0];
   if (!twice) return text;
   if (move[0] === 'y') return 'Spin the whole cube half a turn: the back comes to the front';
-  return `${text.replace(/, like a wheel to the right/, '')}, twice`;
+  if (move[0] === 'x') return 'Tilt the whole cube half a turn: the bottom comes to the top';
+  if (move[0] === 'z') return 'Turn the whole cube upside down, like a steering wheel';
+  return `${text.replace(/, like a wheel to the right/, '').replace(/ \(the way .+\)/, '')}, twice`;
 }
 
 // ---------- Case thumbnails ----------

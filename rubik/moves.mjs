@@ -5,7 +5,7 @@
 // move a center is rewritten as outer-face turns plus a change of the cube's
 // orientation, `orient`: a 3×3 matrix that maps the model's axes to the
 // solver's view (+x right, +y up, +z toward you).
-import { applyMoves, tokens } from './cube.mjs';
+import { applyMoves, tokens } from './cube.mjs?v=202611160411';
 
 export const IDENTITY = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
 const AXES = { x: 0, y: 1, z: 2 };

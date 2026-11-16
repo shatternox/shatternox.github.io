@@ -1,14 +1,15 @@
-import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs';
-import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs';
-import { palette, standard, lessons, algNames } from './lessons.mjs';
-import { examples } from './examples.mjs';
-import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs';
-import { createGuide } from './guide.mjs';
-import { orientFromYaw, modelFace } from './moves.mjs';
-import { createCoach } from './coach.mjs';
-import { sfx, confetti } from './sfx.mjs';
-import { music } from './music.mjs';
-import { renderMap } from './tree.mjs';
+import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs?v=202611160411';
+import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs?v=202611160411';
+import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611160411';
+import { examples } from './examples.mjs?v=202611160411';
+import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs?v=202611160411';
+import { createGuide } from './guide.mjs?v=202611160411';
+import { orientFromYaw, modelFace } from './moves.mjs?v=202611160411';
+import { createCoach } from './coach.mjs?v=202611160411';
+import { sfx, confetti } from './sfx.mjs?v=202611160411';
+import { music } from './music.mjs?v=202611160411';
+import { renderMap } from './map.mjs?v=202611160411';
+import { methodList, getMethod } from './methods.mjs?v=202611160411';
 
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -69,7 +70,10 @@ const cube = {
 
 // ---------- Modes ----------
 let mode;
-const coach = createCoach($('coach'), cube);
+let methodId = 'beginner';
+try { methodId = localStorage.getItem('rubik-method') || 'beginner'; } catch { /* storage blocked */ }
+if (!methodList.some(m => m.id === methodId)) methodId = 'beginner';
+const coach = createCoach($('coach'), cube, methodId);
 function setMode(next, scroll = true) {
   if (mode === next) return;
   mode = next;
@@ -83,6 +87,7 @@ function setMode(next, scroll = true) {
   else if (next === 'map') {
     coach.stop();
     renderMap($('map'), {
+      method: coach.method,
       current: coach.position,
       onPick: (stage, key) => { sfx.tick(); setMode('coach', false); coach.goTo(stage, key); $('app').scrollIntoView({ behavior: smooth() }); },
     });
@@ -513,10 +518,35 @@ updateSound();
 for (const tab of document.querySelectorAll('[data-mode-tab]')) tab.addEventListener('click', () => { sfx.tick(); setMode(tab.dataset.modeTab, false); });
 for (const tab of document.querySelectorAll('[data-play-tab]')) tab.addEventListener('click', () => { sfx.tick(); setTrying(tab.dataset.playTab === 'try'); });
 $('cta-solve').addEventListener('click', () => { sfx.tick(); if (mode === 'coach') $('app').scrollIntoView({ behavior: smooth() }); else setMode('coach'); });
-$('cta-learn').addEventListener('click', () => { sfx.tick(); if (mode === 'learn') $('app').scrollIntoView({ behavior: smooth() }); else setMode('learn'); });
+$('cta-learn').addEventListener('click', () => { sfx.tick(); if (mode === 'map') $('app').scrollIntoView({ behavior: smooth() }); else setMode('map'); });
 $('restart-coach').addEventListener('click', () => { sfx.tick(); coach.restart(); });
 document.addEventListener('open-learn', () => setMode('learn'));
 document.addEventListener('open-map', () => setMode('map'));
+
+// ---------- Method picker ----------
+function renderMethods() {
+  $('methods').replaceChildren(...methodList.map(m => {
+    const choice = button(`<small>${m.level}</small><b>${m.name}</b>`, 'method');
+    choice.setAttribute('role', 'radio');
+    choice.setAttribute('aria-checked', String(m.id === methodId));
+    choice.addEventListener('click', () => {
+      if (m.id === methodId) return;
+      sfx.tick();
+      methodId = m.id;
+      try { localStorage.setItem('rubik-method', methodId); } catch { /* storage blocked */ }
+      coach.setMethod(methodId);
+      renderMethods();
+      if (mode === 'map') { mode = undefined; setMode('map', false); }
+      else if (mode === 'learn' && methodId !== 'beginner') setMode('coach', false);
+    });
+    return choice;
+  }));
+  const current = methodList.find(m => m.id === methodId);
+  const built = getMethod(methodId);
+  $('method-blurb').textContent = `${current.blurb} ${built.steps.length} steps, ${built.steps.reduce((n, s) => n + s.cases.length, 0)} cases.`;
+  document.body.dataset.method = methodId;
+}
+renderMethods();
 function updateMusic() {
   $('music').setAttribute('aria-pressed', String(music.playing));
   $('music').textContent = music.playing ? '♫ Music on' : '♫ Music';
@@ -561,7 +591,7 @@ function buildLogo() {
 buildLogo();
 
 setMode(location.hash === '#learn' ? 'learn' : location.hash === '#map' ? 'map' : 'coach', false);
-import('./viewer.mjs').then(({ createViewer }) => {
+import('./viewer.mjs?v=202611160411').then(({ createViewer }) => {
   view = createViewer($('canvas'));
   guide.attach(view);
   $('fallback').hidden = true;

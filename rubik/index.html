@@ -10,8 +10,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="rubik.css?v=20261116">
-  <script type="module" src="app.mjs"></script>
+  <link rel="stylesheet" href="rubik.css?v=202611160411">
+  <script type="module" src="app.mjs?v=202611160411"></script>
   <title>Solve a Rubik’s Cube | Ardian Danny</title>
 </head>
 <body data-mode="coach">
@@ -34,23 +34,28 @@
   <main>
     <section class="hero wrap" aria-labelledby="title">
       <div class="hero-text">
-        <p class="eyebrow">Rubik’s Cube · beginner method</p>
+        <p class="eyebrow">Rubik’s Cube · beginner to CFOP</p>
         <h1 id="title">Solve your cube.<br><em>No experience needed.</em></h1>
-        <p class="lede">Look at your cube, tap the pattern that matches, copy the moves. Every case is mapped out, and a 3D cube with glowing hands shows each turn.</p>
+        <p class="lede">Look at your cube, tap the pattern that matches, copy the moves. Start with the beginner method, then level up to CFOP: every case of every step is mapped out, with a 3D cube and glowing hands for each turn.</p>
         <div class="hero-actions">
           <button id="cta-solve" class="button primary">Solve my cube →</button>
-          <button id="cta-learn" class="button">Learn the 8 steps</button>
+          <button id="cta-learn" class="button">See the solving map</button>
         </div>
       </div>
       <button class="logo-cube" id="logo" aria-label="Spin the cube"></button>
     </section>
 
     <section class="app wrap" id="app" aria-label="Cube coach">
+      <div class="method-bar">
+        <span class="eyebrow">Method</span>
+        <div class="methods" id="methods" role="radiogroup" aria-label="Solving method"></div>
+        <p class="method-blurb" id="method-blurb"></p>
+      </div>
       <div class="app-bar">
         <div class="tabs" role="tablist" aria-label="Mode">
           <button role="tab" data-mode-tab="coach" aria-selected="true">01 · Solve my cube</button>
           <button role="tab" data-mode-tab="map" aria-selected="false">02 · Solving map</button>
-          <button role="tab" data-mode-tab="learn" aria-selected="false">03 · Learn the steps</button>
+          <button role="tab" data-mode-tab="learn" aria-selected="false" class="beginner-only">03 · Beginner lessons</button>
         </div>
         <div class="app-tools">
           <button class="tool coach-only" id="restart-coach">Start over</button>
