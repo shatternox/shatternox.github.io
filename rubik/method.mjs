@@ -2,7 +2,7 @@
 // from the solver's point of view (yellow on top, whatever face is in front).
 // `y` turns the whole cube; it changes which face is "front" without moving
 // any piece, so the state stays absolute and only the yaw changes.
-import { faces, pieces, tiles, applyMoves, permutation, inspectCube, home, tokens, solved } from './cube.mjs?v=202611160440';
+import { faces, pieces, tiles, applyMoves, permutation, inspectCube, home, tokens, solved } from './cube.mjs?v=202611161545';
 
 const SIDES = 'FRBL';
 export const ALGS = {
@@ -175,7 +175,7 @@ function planCorners(state, yaw) {
   }
   for (let n = 1; !placed(plan.end.state, target); n++) {
     if (n > 6) throw new Error('Corner insert did not finish');
-    addBlock(plan, 'alg', `Trigger ×${n}`, ALGS.trigger);
+    addBlock(plan, 'alg', `Trigger ${n}`, ALGS.trigger);
   }
   return plan;
 }
@@ -302,8 +302,8 @@ function planEdges(state, yaw) {
     addBlock(plan, 'rotate', 'Solved side to back', faceFront(yaw, SIDES[(SIDES.indexOf(back) + 2) % 4]));
     const once = play(plan.end.state, plan.end.yaw, ALGS.edges).state === solved;
     plan.key = once ? 'cw' : 'ccw';
-    addBlock(plan, 'alg', once ? 'Algorithm' : 'Algorithm ×1', ALGS.edges);
-    if (!once) addBlock(plan, 'alg', 'Algorithm ×2', ALGS.edges);
+    addBlock(plan, 'alg', once ? 'Algorithm' : 'Algorithm 1', ALGS.edges);
+    if (!once) addBlock(plan, 'alg', 'Algorithm 2', ALGS.edges);
     return plan;
   }
   plan.key = sticker(state, 'F', 1) === 'B' ? 'h' : 'z';

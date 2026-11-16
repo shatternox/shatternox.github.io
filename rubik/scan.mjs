@@ -1,8 +1,8 @@
 // Getting the user's cube into the app: scan each face with the camera, or tap
 // the colors in. Camera frames are read only in this page and never uploaded.
-import { faces, inspectCube } from './cube.mjs?v=202611160440';
-import { palette, standard } from './lessons.mjs?v=202611160440';
-import { sfx } from './sfx.mjs?v=202611160440';
+import { faces, inspectCube } from './cube.mjs?v=202611161545';
+import { palette, standard } from './lessons.mjs?v=202611161545';
+import { sfx } from './sfx.mjs?v=202611161545';
 
 export const inputOrder = [...'FRBLUD'];
 const capital = word => word[0].toUpperCase() + word.slice(1);

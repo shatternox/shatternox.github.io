@@ -1,13 +1,13 @@
 // The coach: takes someone who has never solved a cube from "pick it up" to
 // solved, one move at a time, on their own cube.
-import { solved, applyMoves, showMove } from './cube.mjs?v=202611160440';
-import { planNext, play, currentStage, ALGS } from './method.mjs?v=202611160440';
-import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611160440';
-import { moveIcon, describeMove } from './art.mjs?v=202611160440';
-import { createCubeInput } from './scan.mjs?v=202611160440';
-import { sfx, confetti } from './sfx.mjs?v=202611160440';
-import { getMethod } from './methods.mjs?v=202611160440';
-import { thumb, goalThumb, movesText } from './map.mjs?v=202611160440';
+import { solved, applyMoves, showMove, inverse } from './cube.mjs?v=202611161545';
+import { planNext, play, currentStage, ALGS } from './method.mjs?v=202611161545';
+import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161545';
+import { moveIcon, describeMove } from './art.mjs?v=202611161545';
+import { createCubeInput } from './scan.mjs?v=202611161545';
+import { sfx, confetti } from './sfx.mjs?v=202611161545';
+import { getMethod } from './methods.mjs?v=202611161545';
+import { thumb, goalThumb, movesText } from './map.mjs?v=202611161545';
 
 const keyFor = id => (id === 'beginner' ? 'rubik-coach-v1' : `rubik-coach-v1-${id}`);
 const introMoves = ['R', "R'", 'U', "U'"];
@@ -37,6 +37,121 @@ export function createCoach(root, cube, methodId = 'beginner') {
     render();
   }
 
+  // ---------- Formula player ----------
+  // Shows a whole formula at once. The 3D cube stays still until you press
+  // a button: step forward, step back (undo), play it all, or tap any move.
+  let keyHandler;
+  document.addEventListener('keydown', event => {
+    if (!keyHandler || document.querySelector('dialog[open]') || event.target.closest('input, select, textarea')) return;
+    keyHandler(event);
+  });
+
+  function formulaHTML(blocks) {
+    let offset = 0;
+    const groups = [];
+    for (const b of blocks) {
+      const text = b.moves.map(showMove).join(' ');
+      const last = groups.at(-1);
+      if (last && last.text === text && b.kind === 'alg') last.count++;
+      else groups.push({ text, count: 1 });
+    }
+    const summary = groups.map(({ text, count }) => (count > 1 ? `(${text}) ×${count}` : text)).join('&ensp;');
+    const chips = blocks.map(b => `<span class="block-mini" style="--n:${b.moves.length}"><small>${b.label}</small>${b.moves.map(m =>
+      `<button type="button" class="chip" data-i="${offset++}" title="Show this move">${moveIcon(m)}<span>${showMove(m)}</span></button>`).join('')}</span>`).join('');
+    return `<div class="formula-line"><code>${summary}</code></div>
+      <div class="coach-formula">${chips}</div>`;
+  }
+
+  function playerHTML(blocks, total) {
+    return `<div class="formula-player" data-player>
+      ${formulaHTML(blocks)}
+      <div class="player-bar">
+        <button type="button" class="button icon" data-first title="Back to the start" aria-label="Back to the start">⏮</button>
+        <button type="button" class="button icon" data-prev title="Undo one move (←)" aria-label="Undo one move">←</button>
+        <button type="button" class="button play" data-play>▶ Play all</button>
+        <button type="button" class="button icon" data-next title="Next move (→)" aria-label="Next move">→</button>
+        <span class="player-pos" data-pos></span>
+      </div>
+      <div class="player-now" data-now></div>
+      <p class="player-help">${total > 1 ? 'Tap a move or use ← → to see it on the 3D cube. Nothing moves until you ask.' : 'Press → or ▶ to see it on the 3D cube.'}</p>
+    </div>`;
+  }
+
+  // frames[i] is the cube before moves[i]; `look(frame)` gives cube.show options.
+  function mountPlayer({ frames, moves, look }) {
+    const box = root.querySelector('[data-player]');
+    const myToken = token;
+    const alive = () => myToken === token;
+    let pos = 0;
+    let busy = false;
+    let playing = false;
+    const q = sel => box.querySelector(sel);
+    function showStill() {
+      cube.reset();
+      cube.show(frames[pos], { ...look(frames[pos]), move: moves[pos]?.move });
+    }
+    function draw() {
+      box.querySelectorAll('[data-i]').forEach(node => {
+        const i = Number(node.dataset.i);
+        node.classList.toggle('done', i < pos);
+        node.classList.toggle('current', i === pos);
+        node.disabled = busy || playing;
+      });
+      q('[data-pos]').textContent = pos < moves.length ? `Move ${pos + 1} of ${moves.length}` : `All ${moves.length} moves shown`;
+      q('[data-first]').disabled = q('[data-prev]').disabled = pos === 0 || busy || playing;
+      q('[data-next]').disabled = pos >= moves.length || busy || playing;
+      q('[data-play]').innerHTML = playing ? '❚❚ Pause' : pos >= moves.length ? '↻ Play again' : '▶ Play all';
+      const now = moves[pos];
+      q('[data-now]').innerHTML = now
+        ? `${moveIcon(now.move)}<div><strong>${showMove(now.move)}</strong><span>${describeMove(now.move)}</span></div>`
+        : '<span class="check">✓</span><div><strong>Done</strong><span>That’s the whole formula. Compare the 3D cube with yours.</span></div>';
+    }
+    async function step(direction) {
+      if (busy || !alive()) return false;
+      const forward = direction > 0;
+      const entry = moves[forward ? pos : pos - 1];
+      if (!entry) return false;
+      busy = true;
+      draw();
+      cube.reset();
+      cube.show(frames[pos], look(frames[pos]));
+      await cube.animate(forward ? entry.move : inverse([entry.move])[0]);
+      if (!alive()) return false;
+      pos += direction;
+      busy = false;
+      if (forward && pos === moves.length) sfx.chime(); else sfx.tick();
+      showStill();
+      draw();
+      return true;
+    }
+    async function playAll() {
+      if (playing) { playing = false; draw(); return; }
+      if (pos >= moves.length) { pos = 0; showStill(); }
+      playing = true;
+      draw();
+      while (playing && alive() && pos < moves.length) {
+        if (!(await step(1))) break;
+        await wait(moves[pos] && moves[pos - 1]?.block !== moves[pos].block ? 380 : 90);
+      }
+      if (!alive()) return;
+      playing = false;
+      draw();
+    }
+    const jump = to => { if (busy || playing) return; pos = to; sfx.tick(); showStill(); draw(); };
+    box.querySelectorAll('[data-i]').forEach(node => node.addEventListener('click', () => jump(Number(node.dataset.i))));
+    q('[data-first]').addEventListener('click', () => jump(0));
+    q('[data-prev]').addEventListener('click', () => step(-1));
+    q('[data-next]').addEventListener('click', () => step(1));
+    q('[data-play]').addEventListener('click', playAll);
+    keyHandler = event => {
+      if (!alive()) return;
+      if (event.key === 'ArrowRight') { event.preventDefault(); step(1); }
+      else if (event.key === 'ArrowLeft') { event.preventDefault(); step(-1); }
+    };
+    showStill();
+    draw();
+  }
+
   // ---------- Rendering ----------
   function card(html) {
     root.innerHTML = `<div class="coach-card">${html}</div>`;
@@ -46,6 +161,7 @@ export function createCoach(root, cube, methodId = 'beginner') {
 
   function render() {
     token++;
+    keyHandler = undefined;
     if (s.phase === 'intro') return renderIntro();
     if (s.phase === 'stage') return renderPatternStage();
     if (s.phase === 'look') return renderLook();
@@ -66,7 +182,7 @@ export function createCoach(root, cube, methodId = 'beginner') {
       card(`${dots}
         <div class="eyebrow">Solve my cube · no experience needed</div>
         <h2>Grab your cube.</h2>
-        <p class="lead">I’ll walk you through it one move at a time. Watch the cube here, copy it on yours, press <b>Done</b>. About 20–30 minutes the first time.</p>
+        <p class="lead">I’ll walk you through it one move at a time. Watch the cube here, copy it on yours, then press one button when you’ve done the moves. About 20–30 minutes the first time.</p>
         <div class="coach-actions"><button class="button primary big" data-go>Let’s go →</button></div>
         <button class="link" data-virtual>No cube with you? Practice on a virtual one</button>`);
       on('[data-go]', () => { sfx.tick(); set({ step: 1 }); });
@@ -79,7 +195,8 @@ export function createCoach(root, cube, methodId = 'beginner') {
         <div class="eyebrow">Meet your cube</div>
         <h2>Centers never move.</h2>
         <p class="lead">The middle square of each side always stays put. It tells you that side’s color: the side with the <b>yellow center</b> is the yellow side, even while it’s scrambled.</p>
-        <div class="coach-actions"><button class="button primary big" data-go>Got it →</button></div>`);
+        <div class="coach-actions"><button class="button ghost" data-back>← Back</button><button class="button primary big" data-go>Got it →</button></div>`);
+      on('[data-back]', () => { sfx.tick(); set({ step: 0 }); });
       on('[data-go]', () => { sfx.tick(); set({ step: 2 }); });
       return;
     }
@@ -90,27 +207,23 @@ export function createCoach(root, cube, methodId = 'beginner') {
         <h2>Yellow on top, green facing you.</h2>
         <p class="lead">Find the yellow center and put it on top. Then turn the cube until the <b>green center</b> faces you. White is now underneath.</p>
         <p class="note">Keep holding it like this. If you ever need to turn the whole cube, I’ll say so.</p>
-        <div class="coach-actions"><button class="button primary big" data-go>I’m holding it →</button></div>`);
-      on('[data-go]', () => { sfx.tick(); set({ step: 3, move: 0 }); });
+        <div class="coach-actions"><button class="button ghost" data-back>← Back</button><button class="button primary big" data-go>I’m holding it →</button></div>`);
+      on('[data-back]', () => { sfx.tick(); set({ step: 1 }); });
+      on('[data-go]', () => { sfx.tick(); set({ step: 3 }); });
       return;
     }
     if (step === 3) {
-      const index = s.move ?? 0;
-      const move = introMoves[index];
-      const before = { state: applyMoves(solved, introMoves.slice(0, index)), yaw: 0 };
+      const blocks = [{ kind: 'move', label: 'Right side, then undo it', moves: introMoves.slice(0, 2) }, { kind: 'move', label: 'Top, then undo it', moves: introMoves.slice(2) }];
+      const { moves, frames } = framesFor({ state: solved, yaw: 0 }, blocks);
       card(`${dots}
-        <div class="eyebrow">Your first moves · ${index + 1} of ${introMoves.length}</div>
-        <h2>${index % 2 ? 'Now undo it.' : 'Try this move.'}</h2>
-        ${moveCard(move)}
-        <p class="note">${index === 0 ? 'Watch the arrow and the glowing hand, then do the same on your cube.' : index === 1 ? 'The ′ mark means the other direction. Your cube is back to normal.' : index === 2 ? 'Your right index finger pushes the top layer to the left.' : 'Left index finger pushes it back. That’s all a move is: one side, a quarter turn.'}</p>
-        <div class="coach-actions"><button class="button ghost" data-replay>↻ Show again</button><button class="button primary big" data-done>✓ Done</button></div>`);
-      const myToken = token;
-      demo(before, move, myToken);
-      on('[data-replay]', () => demo(before, move, token));
-      on('[data-done]', () => {
-        sfx.correct();
-        set(index + 1 < introMoves.length ? { move: index + 1 } : { step: 4 });
-      });
+        <div class="eyebrow">Your first moves</div>
+        <h2>Try these 4 moves.</h2>
+        <p class="lead">Each letter is one side turned a quarter. <b>′</b> means the other way, so every second move undoes the one before it. Your cube ends up back where it started.</p>
+        ${playerHTML(blocks, moves.length)}
+        <div class="coach-actions"><button class="button ghost" data-back>← Back</button><button class="button primary big" data-done>I did them →</button></div>`);
+      mountPlayer({ frames, moves, look: () => ({ colors: standard, all: true }) });
+      on('[data-back]', () => { sfx.tick(); set({ step: 2 }); });
+      on('[data-done]', () => { sfx.correct(); set({ step: 4 }); });
       return;
     }
     cube.show(solvedFrame, { colors: standard, all: true });
@@ -121,25 +234,19 @@ export function createCoach(root, cube, methodId = 'beginner') {
         ${['R right', 'L left', 'U top', 'D bottom', 'F front', 'B back'].map(t => `<span><b>${t[0]}</b>${t.slice(2)}</span>`).join('')}
       </div>
       <p class="lead"><b>′</b> means the other way. <b>2</b> means twice. You don’t need to memorize this: every move comes with an arrow and the hand that does it.</p>
-      <div class="coach-actions"><button class="button primary big" data-go>Start step 1 →</button></div>
+      <div class="coach-actions"><button class="button ghost" data-back>← Back</button><button class="button primary big" data-go>Start step 1 →</button></div>
       <p class="note">From here on, I show you every pattern you might see. You pick the one that looks like your cube, and I show the moves.</p>
       <button class="link" data-scan>Prefer exact moves for your cube? Scan it instead</button>`);
+    on('[data-back]', () => { sfx.tick(); set({ step: 3 }); });
     on('[data-go]', () => { sfx.tick(); set({ phase: 'stage', stage: 0, startedAt: Date.now() }); });
     on('[data-scan]', () => { sfx.tick(); set({ phase: 'input' }); });
   }
 
-  function moveCard(move) {
-    return `<div class="coach-move">${moveIcon(move)}<div><strong>${showMove(move)}</strong><span>${describeMove(move)}</span></div></div>`;
-  }
-
-  // Show a move: arrow first, then the turn.
-  async function demo(before, move, myToken) {
-    cube.show(before, { colors: standard, all: true, move });
-    await wait(550);
-    if (myToken !== token) return;
-    await cube.animate(move, before.yaw);
-    if (myToken !== token) return;
-    cube.show(play(before.state, before.yaw, [move]), { colors: standard, all: true });
+  function framesFor(start, blocks) {
+    const moves = blocks.flatMap((block, index) => block.moves.map(move => ({ move, block: index })));
+    const frames = [start];
+    for (const { move } of moves) frames.push(play(frames.at(-1).state, frames.at(-1).yaw, [move]));
+    return { moves, frames };
   }
 
   function startVirtual() {
@@ -155,15 +262,22 @@ export function createCoach(root, cube, methodId = 'beginner') {
 
   // ---------- 2 · Pattern path: look, pick, follow, look again ----------
   const steps = () => method.steps;
-  const stepBar = stage => `<div class="progress" style="--n:${steps().length}">${steps().map((step, i) =>
-    `<i class="${i < stage ? 'done' : i === stage ? 'now' : ''}" title="${step.name}"></i>`).join('')}</div>`;
+  // Every step is a button: jump back (or ahead) to any step at any time.
+  const stepBar = stage => `<nav class="progress steps-bar" style="--n:${steps().length}" aria-label="Steps">${steps().map((step, i) =>
+    `<button type="button" class="${i < stage ? 'done' : i === stage ? 'now' : ''}" data-goto="${i}" title="Step ${i + 1}: ${step.name}" aria-label="Go to step ${i + 1}: ${step.name}"${i === stage ? ' aria-current="step"' : ''}><i></i></button>`).join('')}</nav>`;
+  function wireStepBar() {
+    root.querySelectorAll('[data-goto]').forEach(node => node.addEventListener('click', () => {
+      sfx.tick();
+      set({ phase: 'stage', stage: Number(node.dataset.goto), won: undefined, rounds: 0, path: [] });
+    }));
+  }
   const findCase = (stage, key) => steps()[stage].cases.find(c => c.key === key);
 
   function renderPatternStage() {
     const stage = s.stage;
     const step = steps()[stage];
     cube.reset();
-    cube.show({ state: step.goal, yaw: 0 }, { colors: standard, mask: step.mask(step.goal) });
+    cube.show({ state: step.goal, yaw: 0 }, { colors: standard, mask: step.mask(step.goal), hold: 'The goal of this step (not your cube)' });
     const memo = step.memo?.length ? step.memo : step.cases.length <= 7 ? step.cases.map(c => ({ name: c.label, moves: c.blocks.flatMap(b => b.moves) })) : [];
     card(`
       ${stepBar(stage)}
@@ -174,8 +288,10 @@ export function createCoach(root, cube, methodId = 'beginner') {
       <ol class="how">${step.how.map(line => `<li><span>${line}</span></li>`).join('')}</ol>
       ${memo.length ? `<div class="memo"><small>You’ll use</small>${memo.map(m => `<div><b>${m.name}</b> ${m.moves.map(x => chip(x)).join('')}</div>`).join('')}</div>`
         : `<p class="note">${step.cases.length} cases, each with a picture. You don’t need to memorize them first: pick the one you see and copy the moves. They stick with practice.</p>`}
-      <div class="coach-actions"><button class="button primary big" data-go>Look at my cube →</button></div>
+      <div class="coach-actions">${stage ? '<button class="button ghost" data-prev-step>← Step ' + stage + '</button>' : ''}<button class="button primary big" data-go>Look at my cube →</button></div>
       <button class="link" data-map>See this step on the map</button>`);
+    wireStepBar();
+    on('[data-prev-step]', () => { sfx.tick(); set({ phase: 'stage', stage: stage - 1, won: undefined, rounds: 0, path: [] }); });
     on('[data-go]', () => { sfx.tick(); set({ phase: 'look', won: undefined, path: [] }); });
     on('[data-map]', () => root.dispatchEvent(new CustomEvent('open-map', { bubbles: true })));
   }
@@ -196,7 +312,7 @@ export function createCoach(root, cube, methodId = 'beginner') {
     while (view.labels.length === 1) { path = [...path, view.labels[0]]; view = narrow(step, path); }
     const showGroups = view.labels.length > 1 && view.cases.length > 8;
     cube.reset();
-    cube.show({ state: step.goal, yaw: 0 }, { colors: standard, mask: step.mask(step.goal) });
+    cube.show({ state: step.goal, yaw: 0 }, { colors: standard, mask: step.mask(step.goal), hold: 'The goal of this step (not your cube)' });
     const crumbs = path.length ? `<div class="crumbs"><button class="crumb" data-path="0">All</button>${path.map((p, i) => ` › <button class="crumb" data-path="${i + 1}">${p}</button>`).join('')}</div>` : '';
     const options = showGroups
       ? view.labels.map(label => {
@@ -214,7 +330,10 @@ export function createCoach(root, cube, methodId = 'beginner') {
         ${options}
         ${path.length ? '' : `<button class="pick-case pick-done" data-done-step><span class="art">${goalThumb(method, stage)}</span><span class="pick-name">✓ None left</span><small>${step.done}</small></button>`}
       </div>
-      <p class="note">Grey squares don’t matter for this step.${step.art === 'iso' ? ' The gold outline marks the pieces to look for.' : ' The bottom edge of each picture is the side facing you.'}</p>`);
+      <p class="note">Grey squares don’t matter for this step.${step.art === 'iso' ? ' The gold outline marks the pieces to look for.' : ' The bottom edge of each picture is the side facing you.'} The colors in the pictures are just an example: match the pattern, not the exact colors.</p>
+      <button class="link" data-overview>← Back to the step overview</button>`);
+    wireStepBar();
+    on('[data-overview]', () => { sfx.tick(); set({ phase: 'stage' }); });
     root.querySelectorAll('[data-group]').forEach(node => node.addEventListener('click', () => {
       sfx.tick();
       set({ path: [...path, node.dataset.group] });
@@ -240,56 +359,22 @@ export function createCoach(root, cube, methodId = 'beginner') {
     const step = steps()[stage];
     const c = findCase(stage, s.key);
     if (!c) return set({ phase: 'look' });
-    const options = { colors: standard, mask: step.mask(c.start.state), stage: method.id === 'beginner' ? stage : -1, target: c.target };
-    if (s.cursor >= c.moves.length) {
-      sfx.chime();
-      const end = c.frames.at(-1);
-      cube.show(end, { ...options, mask: step.mask(end.state) });
-      card(`
-        ${stepBar(stage)}
-        <div class="eyebrow">${method.name} · step ${stage + 1} · ${step.name}</div>
-        <h2>Nice. Look at your cube again.</h2>
-        <p class="lead">Each round fixes one thing. Find the next pattern, or tell me the step is done.</p>
-        <div class="coach-actions"><button class="button ghost" data-replay>↻ Replay this case</button><button class="button primary big" data-go>Look again →</button></div>`);
-      on('[data-go]', () => { sfx.tick(); set({ phase: 'look', rounds: (s.rounds ?? 0) + 1, path: [] }); });
-      on('[data-replay]', () => set({ cursor: 0 }));
-      return;
-    }
-    const { move, block } = c.moves[s.cursor];
-    let offset = 0;
-    const formula = c.blocks.map((b, bi) => `<span class="block-mini ${bi === block ? 'now' : ''}"><small>${b.label}</small>${b.moves.map(m => {
-      const i = offset++;
-      return chip(m, i < s.cursor ? 'done' : i === s.cursor ? 'current' : '');
-    }).join('')}</span>`).join('');
+    const options = { colors: standard, stage: method.id === 'beginner' ? stage : -1, target: c.target, hold: 'Yellow on top · colors are an example' };
     card(`
       ${stepBar(stage)}
-      <div class="eyebrow">${method.name} · step ${stage + 1} · ${step.name} · <button class="crumb" data-back>change case</button></div>
-      <p class="coach-case"><b>${c.label}.</b> ${c.hint ?? step.hint ?? ''}</p>
-      ${s.cursor === 0 ? '<p class="note">Hold your cube like the 3D one: same pieces in the same spots. Grey squares don’t matter.</p>' : ''}
-      ${moveCard(move)}
-      <div class="coach-sub">${c.blocks[block].label} · move ${s.cursor + 1} of ${c.moves.length}</div>
-      <div class="coach-actions"><button class="button ghost" data-replay>↻ Show again</button><button class="button primary big" data-done>✓ Done</button></div>
-      <div class="coach-links"><button class="link" data-undo ${s.cursor ? '' : 'disabled'}>← Back a move</button><button class="link" data-back>Not my case</button></div>
-      <div class="coach-formula">${formula}</div>`);
-    const myToken = token;
-    playCaseMove(c, options, myToken);
-    on('[data-replay]', () => playCaseMove(c, options, token));
-    on('[data-done]', () => { sfx.tick(); set({ cursor: s.cursor + 1 }); });
-    on('[data-undo]', () => set({ cursor: Math.max(0, s.cursor - 1) }));
-    root.querySelectorAll('[data-back]').forEach(node => node.addEventListener('click', () => set({ phase: 'look' })));
-  }
-
-  async function playCaseMove(c, options, myToken) {
-    const before = c.frames[s.cursor];
-    const { move } = c.moves[s.cursor];
-    const masks = frame => ({ ...options, mask: steps()[s.stage].mask(frame.state) });
-    cube.reset();
-    cube.show(before, { ...masks(before), move });
-    await wait(650);
-    if (myToken !== token) return;
-    await cube.animate(move);
-    if (myToken !== token) return;
-    cube.show(c.frames[s.cursor + 1], masks(c.frames[s.cursor + 1]));
+      <div class="eyebrow">${method.name} · step ${stage + 1} of ${steps().length} · ${step.name}</div>
+      <h2>${c.label}</h2>
+      <div class="case-steps">
+        <div class="case-step"><span class="case-num">1</span><div><b>Get ready</b><p>${c.hint ?? step.hint ?? ''}</p></div></div>
+        <div class="case-step"><span class="case-num">2</span><div><b>Do these ${c.moves.length} moves</b>
+          ${playerHTML(c.blocks, c.moves.length)}</div></div>
+        <div class="case-step"><span class="case-num">3</span><div><b>Look at your cube again</b><p>Each round fixes one piece or one pattern. Pick the next picture, or “None left” when the step is done.</p></div></div>
+      </div>
+      <div class="coach-actions"><button class="button ghost" data-back>← Not my case</button><button class="button primary big" data-go>I did these moves →</button></div>`);
+    wireStepBar();
+    mountPlayer({ frames: c.frames, moves: c.moves, look: frame => ({ ...options, mask: step.mask(frame.state) }) });
+    on('[data-go]', () => { sfx.correct(); set({ phase: 'look', rounds: (s.rounds ?? 0) + 1, path: [] }); });
+    on('[data-back]', () => { sfx.tick(); set({ phase: 'look' }); });
   }
 
   // ---------- 3 · Exact path: show us your cube ----------
@@ -341,45 +426,18 @@ export function createCoach(root, cube, methodId = 'beginner') {
     const stage = plan.stage;
     if (s.stageIntro !== stage) return renderStageIntro(stage);
     if (s.cursor >= plan.moves.length) return renderCheckpoint();
-    const { move, block } = plan.moves[s.cursor];
     const lesson = lessons[stage];
     const [caseName, caseHint] = lesson.cases[plan.key];
-    let offset = 0;
-    const formula = plan.blocks.map((b, bi) => `<span class="block-mini ${bi === block ? 'now' : ''}"><small>${b.label}</small>${b.moves.map(m => {
-      const i = offset++;
-      return chip(m, i < s.cursor ? 'done' : i === s.cursor ? 'current' : '');
-    }).join('')}</span>`).join('');
     card(`
       ${progressBar(stage)}
       <div class="eyebrow">Step ${stage + 1} of ${lessons.length} · ${lesson.name}</div>
-      <p class="coach-case"><b>${caseName}.</b> ${caseHint}</p>
-      ${moveCard(move)}
-      <div class="coach-sub">${plan.blocks[block].label} · move ${s.cursor + 1} of ${plan.moves.length}</div>
-      <div class="coach-actions"><button class="button ghost" data-replay>↻ Show again</button><button class="button primary big" data-done>✓ Done</button></div>
-      <div class="coach-links"><button class="link" data-undo ${s.cursor ? '' : 'disabled'}>← Back a move</button><button class="link" data-lost>My cube looks different</button></div>
-      <div class="coach-formula">${formula}</div>`);
-    const myToken = token;
-    playMove(myToken);
-    on('[data-replay]', () => playMove(token));
-    on('[data-done]', () => {
-      sfx.tick();
-      set({ cursor: s.cursor + 1 });
-    });
-    on('[data-undo]', () => set({ cursor: Math.max(0, s.cursor - 1) }));
+      <h2>${caseName}</h2>
+      <p class="coach-case">${caseHint} These moves are worked out for your exact cube, starting from how you hold it now (see the label above the 3D cube).</p>
+      ${playerHTML(plan.blocks, plan.moves.length)}
+      <div class="coach-actions"><button class="button ghost" data-lost>My cube looks different</button><button class="button primary big" data-done>I did these moves →</button></div>`);
+    mountPlayer({ frames, moves: plan.moves, look: () => ({ colors: s.colors, all: true, stage: plan.stage, target: plan.target }) });
+    on('[data-done]', () => { sfx.correct(); set({ cursor: plan.moves.length }); });
     on('[data-lost]', renderLost);
-  }
-
-  async function playMove(myToken) {
-    const before = frames[s.cursor];
-    const { move } = plan.moves[s.cursor];
-    const options = { colors: s.colors, all: true, stage: plan.stage, target: plan.blocks[plan.moves[s.cursor].block].target ?? plan.target };
-    cube.reset();
-    cube.show(before, { ...options, move });
-    await wait(650);
-    if (myToken !== token) return;
-    await cube.animate(move, before.yaw);
-    if (myToken !== token) return;
-    cube.show(frames[s.cursor + 1], options);
   }
 
   function renderCheckpoint() {
@@ -458,7 +516,7 @@ export function createCoach(root, cube, methodId = 'beginner') {
       <div class="coach-actions"><button class="button primary big" data-again>Solve again →</button></div>
       <button class="link" data-learn>Learn the steps so you can do it without me</button>`);
     on('[data-again]', () => {
-      try { localStorage.removeItem(KEY); } catch { /* storage blocked */ }
+      try { localStorage.removeItem(keyFor(method.id)); } catch { /* storage blocked */ }
       s = { ...fresh(), phase: 'stage', stage: 0, startedAt: Date.now() };
       save();
       render();

@@ -1,6 +1,6 @@
 // Small SVG drawings: move icons, case thumbnails.
-import { faces } from './cube.mjs?v=202611160440';
-import { toAbsolute } from './method.mjs?v=202611160440';
+import { faces } from './cube.mjs?v=202611161545';
+import { toAbsolute } from './method.mjs?v=202611161545';
 
 const GREY = '#4a554f';
 

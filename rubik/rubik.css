@@ -457,3 +457,38 @@ body:not([data-method="beginner"]) .beginner-only { display: none !important; }
   .method-blurb { grid-column: 1; }
   .method { flex: 1 1 140px; }
 }
+
+/* Coach: whole-formula player */
+.steps-bar button { padding: 8px 0; border: 0; background: none; cursor: pointer; }
+.steps-bar button i { display: block; height: 4px; border-radius: 2px; background: var(--line); }
+.steps-bar button.done i { background: var(--accent-strong); }
+.steps-bar button.now i { background: linear-gradient(90deg, var(--acid), #2f5a40); }
+.steps-bar button:hover i, .steps-bar button:focus-visible i { background: var(--acid); }
+.formula-player { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.formula-line code { display: block; padding: 10px 12px; border: 1px solid #2f5a40; border-radius: var(--radius); background: #0e1c15; color: var(--ink); font: 600 1.25rem/1.4 var(--mono); letter-spacing: .02em; word-spacing: .15em; }
+.formula-player .coach-formula { padding-top: 0; border-top: 0; }
+.formula-player .block-mini .chip { cursor: pointer; }
+.player-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.player-bar .button { min-height: 44px; }
+.player-bar .play { min-width: 110px; }
+.player-pos { margin-left: auto; color: var(--muted); font: .74rem var(--mono); }
+.player-now { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); }
+.player-now .move-icon { flex: none; width: 52px; height: 52px; }
+.player-now strong { display: block; font: 600 1.5rem/1 var(--display); }
+.player-now span { display: block; margin-top: 4px; font-size: .92rem; color: var(--muted); }
+.player-now .check { flex: none; display: grid; place-items: center; width: 52px; height: 52px; color: var(--acid); font-size: 1.6rem; }
+.player-help { margin: 0; color: var(--muted); font-size: .8rem; }
+.case-steps { display: flex; flex-direction: column; gap: 14px; }
+.case-step { display: grid; grid-template-columns: 28px 1fr; gap: 10px; }
+.case-step > div { min-width: 0; }
+.case-step b { color: var(--ink); }
+.case-step p { margin: 4px 0 0; color: var(--muted); }
+.case-num { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--acid); color: var(--acid); font: 600 .8rem var(--mono); }
+.formula-player .block-mini { display: inline-grid; grid-template-columns: repeat(var(--n, 4), auto); gap: 3px; align-items: end; }
+.formula-player .block-mini small { grid-column: 1 / -1; width: auto; }
+@media (max-width: 520px) {
+  .player-bar { gap: 4px; }
+  .player-bar .button.icon { min-width: 44px; }
+  .player-bar .play { flex: 1; min-width: 0; }
+  .player-pos { order: -1; width: 100%; margin-left: 0; }
+}

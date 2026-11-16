@@ -1,18 +1,18 @@
 // The solving map: for every step, where to look, every case you can see,
 // and the moves for it, already held the right way. Pure data plus drawings,
 // shared by the coach and the map view.
-import { solved, applyMoves, tokens, inverse, tiles, inspectCube } from './cube.mjs?v=202611160440';
-import { planNext, play, relevance, pieceLocation, currentStage, WHITE_EDGES } from './method.mjs?v=202611160440';
-import { lessons, standard, palette } from './lessons.mjs?v=202611160440';
-import { examples } from './examples.mjs?v=202611160440';
-import { isoCube, topView } from './art.mjs?v=202611160440';
+import { solved, applyMoves, tokens, inverse, tiles, inspectCube } from './cube.mjs?v=202611161545';
+import { planNext, play, relevance, pieceLocation, currentStage, WHITE_EDGES } from './method.mjs?v=202611161545';
+import { lessons, standard, palette } from './lessons.mjs?v=202611161545';
+import { examples } from './examples.mjs?v=202611161545';
+import { isoCube, topView } from './art.mjs?v=202611161545';
 
 // A cube with a finished daisy: every white edge on top, white facing up.
 const daisy = applyMoves(solved, tokens('F2 R2 B2 L2'));
 const fromGoal = (goal, moves) => applyMoves(goal, inverse(tokens(moves)));
 
 const LOOK = [
-  'No white on top yet? That’s normal: start with any white edge (white plus one other color) that isn’t on top with white facing up. If its white is on a side, turn the whole cube so the white faces you. If it’s on the bottom face, keep holding as is.',
+  'Find a white edge (white + one other color) that isn’t a petal yet. Turn the whole cube so its white faces you, or keep it as is if white faces the floor. Where is it?',
   'Look at the white petals on top. Check each petal’s other color against the center below it.',
   'Find a corner with white in the top layer. Turn the top until it sits above its spot, and hold that spot at the front-right.',
   'Find a top edge with no yellow. Turn the top until its front color matches the center below, and face it.',
@@ -35,14 +35,14 @@ const DONE = [
 // Hand-made cases for the first two steps: the piece is shown where you hold it.
 const MANUAL = {
   0: {
-    middle: { moves: 'R', hold: 'White faces you in the middle row. First check the top spot right above it (top-right for R, top-left for L′): if it’s already white, turn the top (U) until it isn’t. Then: on the right side → R, on the left side → L′.' },
-    top: { moves: "F U' R", hold: 'White faces you in the top row. No need to make room first: F drops it to the middle, U′ makes room on top, R lifts it up.' },
-    bottom: { moves: "F L' F'", hold: 'White faces you in the bottom row. If the top-left spot is already white, turn the top (U) until it isn’t. Then: F brings it to the middle, L′ lifts it, F′ puts the front back.' },
-    down: { state: applyMoves(daisy, tokens('U F2')), moves: 'F2', hold: 'White is on the bottom face. Turn the bottom (D) until the piece is at the front. If the top-front spot is already white, turn the top (U) until it isn’t. Then F2.' },
+    middle: { moves: 'R', hold: 'White faces you, middle row, on the right. Is the top-right spot above it already white? Turn the top (U) until it isn’t. (On the left instead? Check the top-left spot and do L′.)' },
+    top: { moves: "F U' R", hold: 'White faces you, top row. F drops it to the middle row, U′ moves a free spot above it (still white there? turn U again), R lifts it up.' },
+    bottom: { moves: "F L' F'", hold: 'White faces you, bottom row. Is the top-left spot already white? Turn the top (U) until it isn’t. F moves it to the middle, L′ lifts it up, F′ puts the front back.' },
+    down: { state: applyMoves(daisy, tokens('U F2')), moves: 'F2', hold: 'White faces the floor. Turn the bottom (D) until the piece is at the front. Is the top-front spot already white? Turn the top (U) until it isn’t.' },
   },
   1: {
-    matched: { state: daisy, moves: 'F2', hold: 'The petal’s side color already matches the center under it. Hold that side in front.' },
-    turn: { state: applyMoves(daisy, ['U']), moves: "U' F2", hold: 'Turn the top until the petal’s side color matches the center below, then hold that side in front.' },
+    matched: { state: daisy, moves: 'F2', hold: 'A petal’s side color already matches the center right below it. Turn the whole cube so that side faces you.' },
+    turn: { state: applyMoves(daisy, ['U']), moves: "U' F2", hold: 'No petal matches yet. Turn the top until one does (here U′), with that side facing you.' },
   },
 };
 
