@@ -595,3 +595,18 @@ body[data-mode="map"] .stage-view { height: clamp(300px, 46vh, 440px); }
 }
 .step-grid .map-node { display: block; position: sticky; top: calc(var(--header-height) + 12px); align-self: start; }
 @media (max-width: 960px) { .step-grid .map-node { position: static; } }
+/* Case pictures that need a second angle (e.g. seen from below) */
+.thumb-pair { display: inline-flex; align-items: flex-start; gap: 4px; }
+.thumb-pair svg { width: 50%; }
+.from-below { display: inline-grid; justify-items: center; }
+.from-below small { color: var(--gold); font: 500 .56rem var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.mc-head { grid-template-columns: auto minmax(0, 1fr); }
+.mc-head .thumb-pair svg, .mc-result .thumb-pair svg { width: 84px !important; height: auto; }
+.mc-result { grid-template-columns: auto minmax(0, 1fr); }
+@media (max-width: 640px) {
+  .mc-head .thumb-pair svg, .mc-result .thumb-pair svg { width: 72px !important; }
+}
+@media (max-width: 640px) {
+  .mc-head:has(.thumb-pair), .mc-result:has(.thumb-pair) { grid-template-columns: minmax(0, 1fr); }
+  .mc-head .thumb-pair svg, .mc-result .thumb-pair svg { width: 110px !important; }
+}

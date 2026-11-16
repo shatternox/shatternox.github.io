@@ -4,11 +4,11 @@
 //
 // A situation "matches" when, after the hold/turn the case tells you to do
 // (turn the top, turn the whole cube, …), it looks like the case's picture.
-import { solved, pieces, applyMoves, tiles } from './cube.mjs?v=202611161406';
-import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161406';
-import { SETS, goodEdge } from './verify.mjs?v=202611161406';
-import * as A from './algs.mjs?v=202611161406';
-import { getMethod, methodList } from './methods.mjs?v=202611161406';
+import { solved, pieces, applyMoves, tiles } from './cube.mjs?v=202611161447';
+import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161447';
+import { SETS, goodEdge } from './verify.mjs?v=202611161447';
+import * as A from './algs.mjs?v=202611161447';
+import { getMethod, methodList } from './methods.mjs?v=202611161447';
 
 const EDGE_SLOTS = Object.keys(pieces).filter(n => n.length === 2);
 const CORNER_SLOTS = Object.keys(pieces).filter(n => n.length === 3);
@@ -319,7 +319,7 @@ for (const { id } of methodList) {
   report('beginner', 'Middle layer', possible, covered, mm);
 
   // Last layer: the beginner planner's own case names must all have pictures.
-  const { planNext } = await import('./method.mjs?v=202611161406');
+  const { planNext } = await import('./method.mjs?v=202611161447');
   ll ??= llStates();
   for (const stage of [4, 5, 6, 7]) {
     const keys = new Set(b.steps[stage].cases.map(c => c.key));
@@ -350,7 +350,13 @@ for (const { id } of methodList) {
     const wrong = step.cases.filter(c => c.group[0]?.startsWith('Yes') !== usable(c.start.state)).map(c => c.label);
     const yes = step.cases.filter(c => c.group[0]?.startsWith('Yes')).length;
     const no = step.cases.filter(c => c.group[0]?.startsWith('No')).length;
-    const missing = [...wrong, ...(yes ? [] : ['no “Yes” pictures']), ...(no ? [] : ['no “No” pictures'])];
+    // What the question asks about must be drawn in real colors, not grey.
+    const hidden = step.cases.filter(c => {
+      const show = step.mask(c.start.state);
+      const slots = stage === 2 ? ['UFR', 'URB', 'UBL', 'ULF'] : ['UF', 'UR', 'UB', 'UL'];
+      return slots.some(slot => pieces[slot].some(i => !show[i]));
+    }).map(c => `${c.label} (top hidden in grey)`);
+    const missing = [...wrong, ...hidden, ...(yes ? [] : ['no “Yes” pictures']), ...(no ? [] : ['no “No” pictures'])];
     report('beginner', name, step.cases.length, step.cases.length - wrong.length, missing);
   }
   // Every middle-layer situation with nothing usable on top (all four
@@ -383,6 +389,39 @@ for (const { id } of methodList) {
     else cmiss.push(slots.map(x => `${x.piece}/${x.twist}@${x.slot}`).join(' '));
   }
   report('beginner', 'White corners: nothing on top', possible, covered, cmiss);
+}
+
+// ---------- Every picture must be accurate ----------
+// Uses the map's own drawing choices (map.mjs), so it checks what you see:
+// 1. the pieces a case is about are drawn, in color, at the start and in the result;
+// 2. pictures in the same group look different from each other.
+{
+  const { visibleStickers, pictureViews, focusGroups } = await import('./map.mjs?v=202611161447');
+  for (const { id } of methodList) {
+    const m = getMethod(id);
+    m.steps.forEach((step, si) => {
+      const problems = [];
+      const groups = new Map();
+      for (const c of step.cases) {
+        for (const [frame, when] of [[c.start, 'start'], [c.frames.at(-1), 'result']]) {
+          if (frame.orient && frame.orient.flat().join() !== '1,0,0,0,1,0,0,0,1') continue;
+          const visible = visibleStickers(m, si, c, frame);
+          // The piece's white/yellow sticker (or, if it faces the floor, any of its stickers) is shown.
+          for (const stickers of focusGroups(c, frame.state)) {
+            if (!stickers.some(i => visible.has(i))) problems.push(`${c.label} (piece or its white/yellow side not visible in the ${when} picture)`);
+          }
+        }
+        const views = pictureViews(m, si, c, c.start).views;
+        const sig = JSON.stringify(views) + '|' + [...visibleStickers(m, si, c, c.start)].sort((x, y) => x - y).map(i => `${i}${c.start.state[i]}`).join('');
+        const key = (c.group ?? []).join(' > ');
+        if (!groups.has(key)) groups.set(key, new Map());
+        const g = groups.get(key);
+        if (g.has(sig)) problems.push(`${c.label} looks the same as ${g.get(sig)}`);
+        else g.set(sig, c.label);
+      }
+      report(id, `${step.name}: pictures accurate`, step.cases.length, step.cases.length - Math.min(problems.length, step.cases.length), problems);
+    });
+  }
 }
 
 // ---------- Roux LSE ----------

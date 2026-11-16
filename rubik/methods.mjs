@@ -2,16 +2,16 @@
 // The beginner method comes from tree.mjs; CFOP is built from the verified
 // algorithm sets in algs.mjs. Case pictures are generated from the
 // algorithms themselves, so a picture and its moves can never disagree.
-import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161406';
-import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161406';
-import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161406';
-import { lessons, algNames } from './lessons.mjs?v=202611161406';
-import { tree, goalState } from './tree.mjs?v=202611161406';
+import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161447';
+import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161447';
+import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161447';
+import { lessons, algNames } from './lessons.mjs?v=202611161447';
+import { tree, goalState } from './tree.mjs?v=202611161447';
 import {
   OLL, PLL, F2L, CROSS, CMLL, LSE_EO, LSE_ULUR, LSE_L4E, EDGE_DL, EDGE_DB, SB_EDGE, SB_PAIR, SB_BACK, FB_PAIR, FB_BACK,
   ZZ_EO, ZZ_LINE, ZZ_EDGE, RU_PAIR, RU_BACK, PETRUS_BL, PETRUS_DF, PETRUS_FL, PETRUS_EO, STUCK, EO_BRING,
-} from './algs.mjs?v=202611161406';
-import { goodEdge } from './verify.mjs?v=202611161406';
+} from './algs.mjs?v=202611161447';
+import { goodEdge } from './verify.mjs?v=202611161447';
 
 const SIDE_WORDS = { F: 'front', R: 'right', B: 'back', L: 'left' };
 const U = k => [[], ['U'], ['U2'], ["U'"]][((k % 4) + 4) % 4];
@@ -90,6 +90,10 @@ function crossFeatures(state) {
   return ['On the bottom', `${where}, white ${white.face === 'D' ? 'down' : 'to the side'}`];
 }
 const focusFor = names => state => names.map(name => pieceLocation(state, name));
+// Outline places (slots), not pieces: e.g. the bad-edge positions.
+const SLOT_NORMAL = { R: [1, 0, 0], L: [-1, 0, 0], U: [0, 1, 0], D: [0, -1, 0], F: [0, 0, 1], B: [0, 0, -1] };
+const slotPosition = slot => [0, 1, 2].map(a => [...slot].reduce((sum, f) => sum + SLOT_NORMAL[f][a], 0));
+const focusSlots = slots => () => slots.map(slotPosition);
 
 // ---------- Step definitions ----------
 const OCLL_NAMES = { 21: 'H', 22: 'Pi', 23: 'Headlights', 24: 'Chameleon', 25: 'Bowtie', 26: 'Antisune', 27: 'Sune' };
@@ -464,7 +468,7 @@ function eoCases(prefix, algs, slots) {
   return algs.map((alg, i) => {
     const c = fromAlg(`${prefix}${i}`, alg, { name: 'Moves' });
     const bad = slots.filter(s => !goodEdge(c.start.state, s));
-    return { ...c, group: [], bad, focus: focusFor(bad) };
+    return { ...c, group: [], bad, focus: focusSlots(bad) };
   });
 }
 const opposite = bad => (bad.includes('UF') && bad.includes('UB')) || (bad.includes('UR') && bad.includes('UL'));
@@ -500,6 +504,7 @@ function zzSteps() {
       ...EO_BRING.ZZ.map((c, i) => ({
         ...fromSetup(`zb${i}`, c.setup, c.moves, { name: 'Bring it to the front' }),
         group: ['A bad edge is not on the front yet'],
+        focus: focusSlots([c.at]),
         label: `Bad edge at the ${SLOT_WORD[c.at]}`,
         hint: `A bad edge sits at the ${SLOT_WORD[c.at]}, and the front spot on the same layer is still good. This one turn brings it onto the front without changing any edge from good to bad. Repeat for each bad edge, then pick the front case.`,
       })),
@@ -588,6 +593,7 @@ function petrusSteps() {
       ...EO_BRING.PETRUS.map((c, i) => ({
         ...fromSetup(`pb${i}`, c.setup, c.moves, { name: 'Bring it up' }),
         group: ['A bad edge is on the right side'],
+        focus: focusSlots([c.at]),
         label: `Bad edge at the ${SLOT_WORD[c.at]}`,
         hint: `A bad edge sits at the ${SLOT_WORD[c.at]}. First turn the top so the top-right spot holds a good edge, then this R turn brings the bad edge up. Then pick the top case.`,
       })),
@@ -607,6 +613,15 @@ function petrusSteps() {
   }, ollStep(['21', '22', '23', '24', '25', '26', '27']), pllStep()];
 }
 
+// What the step's question asks you to look at is always shown in its real
+// colors: the top corners for the white corners, the top edges (both
+// stickers) for the middle layer. Everything else that doesn't matter is grey.
+export const LOOK_AT = { 2: ['UFR', 'URB', 'UBL', 'ULF'], 3: ['UF', 'UR', 'UB', 'UL'] };
+function beginnerMask(stage, state) {
+  const show = relevance(stage, state);
+  for (const slot of LOOK_AT[stage] ?? []) for (const i of pieces[slot]) show[i] = true;
+  return show;
+}
 // Steps where you first check the top layer, then the stuck pieces.
 const TOP_GROUP = {
   2: { yes: 'Yes: a white corner is on top', no: 'No: no white corner on top (one is stuck in the bottom)' },
@@ -651,7 +666,7 @@ function beginnerSteps() {
     const lesson = lessons[stage];
     const algs = lesson.alg ? [lesson.alg].flat() : [];
     return {
-      id: `b${stage}`, name: step.name, art: lesson.art, mask: s => relevance(stage, s), goal: goalState(stage),
+      id: `b${stage}`, name: step.name, art: lesson.art, mask: s => beginnerMask(stage, s), goal: goalState(stage),
       summary: lesson.goal, how: lesson.how, look: step.look, done: step.done,
       memo: algs.map(key => ({ name: algNames[key], moves: ALGS[key] })),
       cases: [

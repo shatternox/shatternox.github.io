@@ -1,8 +1,9 @@
 // Pictures of cases, and the solving map: a method drawn as a tree of
 // steps → recognition groups → cases → moves.
-import { tiles, showMove } from './cube.mjs?v=202611161406';
-import { palette, standard } from './lessons.mjs?v=202611161406';
-import { isoCube, topView, moveIcon, moveHand, describeMove } from './art.mjs?v=202611161406';
+import { tiles, showMove } from './cube.mjs?v=202611161447';
+import { palette, standard } from './lessons.mjs?v=202611161447';
+import { isoCube, topView, moveIcon, moveHand, describeMove } from './art.mjs?v=202611161447';
+import { toAbsolute } from './method.mjs?v=202611161447';
 
 const cache = new Map();
 function focusIndices(c, state) {
@@ -15,6 +16,78 @@ const SIDE_WORD = { F: 'FRONT', R: 'RIGHT', B: 'BACK', L: 'LEFT' };
 // turned (their yaw); other methods are always held the standard way and
 // only drawn from another angle.
 const viewWord = (drawYaw, holdYaw, side) => SIDE_WORD[SIDES[(SIDES.indexOf(side) + drawYaw - holdYaw + 8) % 4]];
+// ---------- Choosing how to draw a case ----------
+// A picture must show the pieces the case is about. Draw from the angle that
+// shows them; if no single angle can (one at the bottom-front, one at the
+// bottom-back), add a second picture seen from below.
+const faceStart = f => 'URFDLB'.indexOf(f) * 9;
+const drawnIso = yaw => ['U', toAbsolute('F', yaw), toAbsolute('R', yaw)].flatMap(f => [...Array(9).keys()].map(i => faceStart(f) + i));
+// Turning the cube upside down (z2): where each sticker goes.
+const Z2 = tiles.map(t => {
+  const p = [-t.position[0], -t.position[1], t.position[2]].join();
+  const n = [-t.normal[0], -t.normal[1], t.normal[2]].join();
+  return tiles.findIndex(u => u.position.join() === p && u.normal.join() === n);
+});
+const flip = list => { const out = []; Z2.forEach((to, from) => { out[to] = list[from]; }); return out; };
+const BELOW = new Set(drawnIso(0));
+// For each piece a case is about: the stickers that must be visible. A piece
+// with white or yellow must show that sticker (it tells which way the piece
+// faces), unless it faces the floor, which you can't see on your cube either.
+export function focusGroups(c, state) {
+  return (c.focus?.(state) ?? []).filter(Boolean).map(p => {
+    const stickers = tiles.map((t, i) => (t.position.join() === p.join() ? i : -1)).filter(i => i >= 0);
+    const key = stickers.find(i => state[i] === 'D') ?? stickers.find(i => state[i] === 'U');
+    return key === undefined || tiles[key].face === 'D' ? stickers : [key];
+  });
+}
+function baseYaws(method, step, c, frame) {
+  const startYaw = c.start.yaw ?? step.yaw ?? 0;
+  const yaw = method.id === 'beginner' ? frame.yaw ?? startYaw : startYaw;
+  return { yaw, hold: method.id === 'beginner' ? yaw : 0 };
+}
+export function pictureViews(method, stepIndex, c, frame) {
+  const step = method.steps[stepIndex];
+  const { yaw, hold } = baseYaws(method, step, c, frame);
+  if (step.art === 'top') return { hold, views: [{ yaw }] };
+  const show = step.mask(frame.state);
+  const groups = focusGroups(c, frame.state);
+  if (!groups.length) return { hold, views: [{ yaw }] };
+  const seen = y => new Set(drawnIso(y).filter(i => show[i]));
+  const covers = set => groups.filter(g => g.some(i => set.has(i))).length;
+  const ranked = [yaw, ...[0, 1, 2, 3].filter(y => y !== yaw)].map(y => ({ y, n: covers(seen(y)) }));
+  const best = ranked.reduce((a, b) => (b.n > a.n ? b : a));
+  if (best.n === groups.length) return { hold, views: [{ yaw: best.y }] };
+  // Add the fewest extra views (another side, or from below) that show the rest.
+  const shown = new Set(seen(best.y));
+  const views = [{ yaw: best.y }];
+  const options = [...[0, 1, 2, 3].filter(y => y !== best.y).map(y => ({ view: { yaw: y }, set: seen(y) })),
+    { view: { yaw: 0, below: true }, set: new Set(tiles.map((_, i) => i).filter(i => BELOW.has(Z2[i]) && show[i])) }];
+  while (covers(shown) < groups.length && views.length < 3) {
+    const left = groups.filter(g => !g.some(i => shown.has(i)));
+    const pick = options.map(o => ({ o, n: left.filter(g => g.some(i => o.set.has(i))).length })).reduce((a, b) => (b.n > a.n ? b : a));
+    if (!pick.n) break;
+    views.push(pick.o.view);
+    for (const i of pick.o.set) shown.add(i);
+  }
+  return { hold, views };
+}
+// Sticker indices (of the real cube) a case picture shows in color.
+export function visibleStickers(method, stepIndex, c, frame) {
+  const step = method.steps[stepIndex];
+  const show = step.mask(frame.state);
+  const out = new Set();
+  for (const v of pictureViews(method, stepIndex, c, frame).views) {
+    if (step.art === 'top') {
+      for (const i of [...Array(9).keys(), ...['F', 'R', 'B', 'L'].flatMap(f => [0, 1, 2].map(k => faceStart(f) + k))]) if (show[i]) out.add(i);
+    } else if (v.below) {
+      Z2.forEach((to, from) => { if (BELOW.has(to) && show[from]) out.add(from); });
+    } else {
+      for (const i of drawnIso(v.yaw)) if (show[i]) out.add(i);
+    }
+  }
+  return out;
+}
+
 // Draw a case at its start, or at its end (`after`) to show the expected result.
 export function thumb(method, stepIndex, c, { labels = false, after = false } = {}) {
   const id = `${method.id}:${stepIndex}:${c.key}:${labels}:${after}`;
@@ -22,27 +95,34 @@ export function thumb(method, stepIndex, c, { labels = false, after = false } = 
   const step = method.steps[stepIndex];
   const frame = after ? c.frames.at(-1) : c.start;
   const { state } = frame;
-  const startYaw = c.start.yaw ?? step.yaw ?? 0;
-  // Beginner frames carry the way the cube is held; other methods are
-  // held the standard way and only drawn from another angle.
-  const yaw = method.id === 'beginner' ? frame.yaw ?? startYaw : startYaw;
-  const hold = method.id === 'beginner' ? yaw : 0;
   const show = step.mask(state);
-  const html = step.art === 'top'
-    ? topView(state, { palette, colors: standard, show, yaw, labels: labels && { bottom: viewWord(yaw, hold, 'F') === 'FRONT' ? 'FACES YOU' : `${viewWord(yaw, hold, 'F')} SIDE` } })
-    : isoCube(state, { palette, colors: standard, show, yaw, focus: focusIndices(c, state), labels: labels && { left: viewWord(yaw, hold, 'F'), right: viewWord(yaw, hold, 'R') } });
+  const { hold, views } = pictureViews(method, stepIndex, c, frame);
+  const pics = views.map(v => {
+    if (step.art === 'top') {
+      return topView(state, { palette, colors: standard, show, yaw: v.yaw, labels: labels && { bottom: viewWord(v.yaw, hold, 'F') === 'FRONT' ? 'FACES YOU' : `${viewWord(v.yaw, hold, 'F')} SIDE` } });
+    }
+    if (v.below) {
+      // Upside down: the bottom is on top, the front stays in front, left and right swap.
+      return `<span class="from-below">${isoCube(flip([...state]).join(''), { palette, colors: standard, show: flip(show), yaw: 0, focus: flip(tiles.map((_, i) => i)).filter((_, j) => focusIndices(c, state).includes(flip(tiles.map((_, k) => k)).indexOf(j))), labels: labels && { left: viewWord(0, hold, 'F'), right: viewWord(0, hold, 'L') } })}<small>seen from below</small></span>`;
+    }
+    return isoCube(state, { palette, colors: standard, show, yaw: v.yaw, focus: focusIndices(c, state), labels: labels && { left: viewWord(v.yaw, hold, 'F'), right: viewWord(v.yaw, hold, 'R') } });
+  });
+  const html = pics.length > 1 ? `<span class="thumb-pair">${pics.join('')}</span>` : pics[0];
   cache.set(id, html);
   return html;
 }
 // One sentence on where the picture is seen from.
 function viewText(method, step, c) {
-  const yaw = c.start.yaw ?? step.yaw ?? 0;
-  const hold = method.id === 'beginner' ? yaw : 0;
+  const stepIndex = method.steps.indexOf(step);
   if (step.art === 'top') return 'Seen from above. The edge marked ▼ is the side facing you.';
-  const left = viewWord(yaw, hold, 'F');
-  return left === 'FRONT'
+  const { hold, views } = pictureViews(method, stepIndex, c, c.start);
+  const left = viewWord(views[0].yaw, hold, 'F');
+  const first = left === 'FRONT'
     ? 'Seen from the front-right: the FRONT side faces you, yellow on top.'
-    : `Seen from the front-left: hold it so the side marked FRONT faces you, yellow on top.`;
+    : `Seen from the ${left.toLowerCase()} and ${viewWord(views[0].yaw, hold, 'R').toLowerCase()} sides so the piece shows: hold it so the side marked FRONT faces you, yellow on top.`;
+  if (views.length === 1) return first;
+  const extra = views.slice(1).map(v => (v.below ? 'from below' : `from the ${viewWord(v.yaw, hold, 'F').toLowerCase()} and ${viewWord(v.yaw, hold, 'R').toLowerCase()} sides`));
+  return `${first} The other picture${extra.length > 1 ? 's show' : ' shows'} the same cube ${extra.join(' and ')}.`;
 }
 export function goalThumb(method, stepIndex) {
   const id = `${method.id}:${stepIndex}:goal`;
