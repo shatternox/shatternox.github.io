@@ -6,20 +6,42 @@ import * as THREE from '../assets/vendor/three/three.module.min.js';
 
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
 
-// Right hand. The left hand is its mirror image. Joints run knuckle → tip.
-const FINGERS = [
-  // index: over the top-right edge, resting on the top
-  { joints: [v(1.86, 0.78, -0.82), v(1.86, 1.42, -0.86), v(1.6, 1.86, -0.9), v(1.08, 1.92, -0.94), v(0.66, 1.88, -0.96)], r: 0.215 },
-  // middle, ring, little: around the back-right edge onto the back
-  { joints: [v(1.9, 0.3, -1.05), v(1.9, 0.3, -1.6), v(1.6, 0.3, -1.92), v(0.95, 0.29, -1.92), v(0.4, 0.28, -1.86)], r: 0.225 },
-  { joints: [v(1.9, -0.24, -1.02), v(1.9, -0.25, -1.56), v(1.6, -0.26, -1.9), v(1.0, -0.27, -1.9), v(0.52, -0.28, -1.85)], r: 0.21 },
-  { joints: [v(1.88, -0.74, -0.92), v(1.9, -0.76, -1.4), v(1.66, -0.78, -1.8), v(1.18, -0.8, -1.84), v(0.84, -0.81, -1.8)], r: 0.18 },
-  // thumb: around the front-right edge, low on the front
-  { joints: [v(1.96, -0.42, 0.62), v(2.04, -0.46, 1.24), v(1.78, -0.5, 1.84), v(1.28, -0.52, 1.9), v(0.88, -0.53, 1.86)], r: 0.25, thumb: true },
+// Right hand. The left hand is its mirror image. Each finger is built like a
+// real one: bones of different lengths that bend at the knuckles, starting
+// from the palm. `bends` are the knuckle angles in degrees, base to tip.
+const DEG = Math.PI / 180;
+const SPECS = [
+  // index: up the right side, over the top, pad resting on the top
+  { base: v(1.98, 0.8, -0.6), dir: v(0, 1, 0.04), axis: v(0, 0, 1), bends: [16, 70, 12], lengths: [1.0, 0.66, 0.5], r: 0.26 },
+  // middle, ring, little: around the back-right edge, fanning slightly
+  { base: v(2.14, 0.34, -0.9), dir: v(0, 0.02, -1), axis: v(0, 1, 0), bends: [18, 70, 14], lengths: [1.06, 0.72, 0.52], r: 0.27 },
+  { base: v(2.14, -0.16, -0.88), dir: v(0, -0.06, -1), axis: v(0, 1, 0), bends: [20, 68, 14], lengths: [1.0, 0.68, 0.5], r: 0.255 },
+  { base: v(2.1, -0.62, -0.96), dir: v(0, -0.14, -1), axis: v(0, 1, 0), bends: [16, 72, 10], lengths: [0.84, 0.52, 0.44], r: 0.22 },
+  // thumb: two bones, around the front-right edge, pad low on the front
+  { base: v(2.16, -0.44, 0.72), dir: v(0, 0.06, 1), axis: v(0, -1, 0), bends: [10, 74, 8], lengths: [0.98, 0.76], r: 0.29, thumb: true },
 ];
-const PALM = { center: v(1.95, -0.12, -0.12), size: v(0.3, 1.12, 1.02) };
-const THENAR = { center: v(2.02, -0.5, 0.5), size: v(0.3, 0.46, 0.42) };
-const ARM = [v(2.06, -1.2, 0.42), v(2.4, -2.2, 1.3), v(2.75, -3.3, 2.25)];
+// Points along the finger: a root inside the palm, then each bone's middle
+// and end, so bones stay straight and only the knuckles curve.
+function fingerPath({ base, dir, axis, bends, lengths, r, thumb }) {
+  const d = dir.clone().normalize();
+  const turn = axis.clone().normalize();
+  const joints = [base.clone().addScaledVector(d, -0.45), base.clone()];
+  let at = base.clone();
+  lengths.forEach((length, i) => {
+    d.applyAxisAngle(turn, bends[i] * DEG);
+    joints.push(at.clone().addScaledVector(d, length / 2));
+    at = at.clone().addScaledVector(d, length);
+    joints.push(at.clone());
+  });
+  return { joints, r, thumb };
+}
+const FINGERS = SPECS.map(fingerPath);
+// A cupped palm against the right face, the fleshy pad under the thumb, and
+// the pad along the little-finger side.
+const PALM = { center: v(2.3, -0.16, -0.16), size: v(0.34, 1.0, 0.86) };
+const THENAR = { center: v(2.24, -0.56, 0.5), size: v(0.36, 0.52, 0.44) };
+const HYPOTHENAR = { center: v(2.3, -0.82, -0.62), size: v(0.3, 0.42, 0.34) };
+const ARM = [v(2.36, -1.0, -0.06), v(2.5, -1.6, 0.25), v(2.75, -2.5, 0.9), v(3.0, -3.4, 1.6)];
 
 const random = () => Math.random();
 const randomUnit = () => {
@@ -48,7 +70,7 @@ function finger({ joints, r, thumb }, push) {
   const curve = new THREE.CatmullRomCurve3(joints, false, 'centripetal');
   const length = curve.getLength();
   const count = Math.round(length * r * 2600);
-  const knuckles = joints.slice(1, -1).map((joint, index) => (index + 1) / (joints.length - 1));
+  const knuckles = joints.map((joint, i) => i).filter(i => i > 0 && i < joints.length - 1 && i % 2 === 1).map(i => i / (joints.length - 1));
   for (let i = 0; i < count; i++) {
     const p = random();
     const center = curve.getPointAt(p);
@@ -56,8 +78,8 @@ function finger({ joints, r, thumb }, push) {
     // The back of the finger points away from the cube.
     const dorsal = center.clone().sub(tangent.clone().multiplyScalar(center.dot(tangent))).normalize();
     const lateral = tangent.clone().cross(dorsal).normalize();
-    let radius = r * (thumb ? 1.08 - 0.22 * p : 1.04 - 0.24 * p);
-    for (const k of knuckles) radius *= 1 + 0.1 * Math.exp(-(((p - k) / 0.05) ** 2));
+    let radius = r * (thumb ? 1.1 - 0.24 * p : 1.06 - 0.26 * p) * (p < 0.12 ? 1 + 0.25 * (0.12 - p) / 0.12 : 1);
+    for (const k of knuckles) radius *= 1 + 0.08 * Math.exp(-(((p - k) / 0.045) ** 2));
     if (p > 0.88) radius *= Math.sqrt(Math.max(0.04, 1 - ((p - 0.88) / 0.12) ** 2));
     const angle = random() * Math.PI * 2;
     // Fingers are wider than they are deep, and the pad side is fuller.
@@ -78,7 +100,7 @@ function finger({ joints, r, thumb }, push) {
 function blob({ center, size }, count, push) {
   for (let i = 0; i < count; i++) {
     const n = randomUnit();
-    const e = 2.6;
+    const e = 2.15;
     const scale = (Math.abs(n.x) ** e + Math.abs(n.y) ** e + Math.abs(n.z) ** e) ** (-1 / e);
     const point = v(n.x * size.x, n.y * size.y, n.z * size.z).multiplyScalar(scale * (random() < 0.92 ? 1 : 0.75)).add(center);
     const normal = v(n.x / size.x, n.y / size.y, n.z / size.z).normalize();
@@ -95,7 +117,7 @@ function arm(push) {
     const a = (Math.abs(tangent.y) < 0.9 ? v(0, 1, 0) : v(1, 0, 0)).cross(tangent).normalize();
     const b = tangent.clone().cross(a).normalize();
     const angle = random() * Math.PI * 2;
-    const radius = 0.5 + 0.12 * t;
+    const radius = 0.42 + 0.16 * t;
     const normal = a.clone().multiplyScalar(Math.cos(angle) * 1.15).add(b.clone().multiplyScalar(Math.sin(angle) * 0.85)).normalize();
     const point = center.clone().add(a.multiplyScalar(Math.cos(angle) * radius * 1.15)).add(b.multiplyScalar(Math.sin(angle) * radius * 0.85));
     push(point, normal, { fade: Math.max(0, 1 - t * 1.05) ** 1.3 });
@@ -106,7 +128,8 @@ function buildHand(mirror) {
   const { data, push } = createBuffers(mirror);
   for (const f of FINGERS) finger(f, push);
   blob(PALM, 5200, push);
-  blob(THENAR, 900, push);
+  blob(THENAR, 1100, push);
+  blob(HYPOTHENAR, 700, push);
   arm(push);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(data.position, 3));

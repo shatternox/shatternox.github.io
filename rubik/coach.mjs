@@ -1,13 +1,13 @@
 // The coach: takes someone who has never solved a cube from "pick it up" to
 // solved, one move at a time, on their own cube.
-import { solved, applyMoves, showMove, inverse } from './cube.mjs?v=202611161545';
-import { planNext, play, currentStage, ALGS } from './method.mjs?v=202611161545';
-import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161545';
-import { moveIcon, describeMove } from './art.mjs?v=202611161545';
-import { createCubeInput } from './scan.mjs?v=202611161545';
-import { sfx, confetti } from './sfx.mjs?v=202611161545';
-import { getMethod } from './methods.mjs?v=202611161545';
-import { thumb, goalThumb, movesText } from './map.mjs?v=202611161545';
+import { solved, applyMoves, showMove, inverse } from './cube.mjs?v=202611161600';
+import { planNext, play, currentStage, ALGS } from './method.mjs?v=202611161600';
+import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161600';
+import { moveIcon, describeMove } from './art.mjs?v=202611161600';
+import { createCubeInput } from './scan.mjs?v=202611161600';
+import { sfx, confetti } from './sfx.mjs?v=202611161600';
+import { getMethod } from './methods.mjs?v=202611161600';
+import { thumb, goalThumb, movesText } from './map.mjs?v=202611161600';
 
 const keyFor = id => (id === 'beginner' ? 'rubik-coach-v1' : `rubik-coach-v1-${id}`);
 const introMoves = ['R', "R'", 'U', "U'"];
