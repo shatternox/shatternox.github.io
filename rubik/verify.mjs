@@ -1,8 +1,8 @@
 // Checks for the CFOP algorithm sets: every algorithm must keep the solved
 // part of the cube intact, and each set must cover every possible case.
 // Used by the page at load (cheap) and by `node rubik/verify.mjs` in full.
-import { solved, applyMoves, pieces } from './cube.mjs?v=202611161257';
-import { run, parse, invert, IDENTITY, sameOrient } from './moves.mjs?v=202611161257';
+import { solved, applyMoves, pieces, tiles as TILES } from './cube.mjs?v=202611161352';
+import { run, parse, invert, IDENTITY, sameOrient } from './moves.mjs?v=202611161352';
 
 const F2L_PIECES = ['DF', 'DR', 'DB', 'DL', 'DRF', 'DBR', 'DLB', 'DFL', 'FR', 'BR', 'BL', 'FL'];
 const OTHER_SLOTS = ['DF', 'DR', 'DB', 'DL', 'DBR', 'DLB', 'DFL', 'BR', 'BL', 'FL'];
@@ -116,7 +116,7 @@ export const SETS = {
       return PRE_U.map(t => { const s = applyMoves(start, t); return LL_CORNERS.map(n => pieces[n].map(i => s[i]).join('')).join(' '); });
     }).sort()[0] },
   LSE_EO: { keep: [...FB, ...SB], expected: 11, key: s => withPre(s, PRE_U, x => eoPattern(x, LSE)) },
-  LSE_ULUR: { keep: [...FB, ...SB], expected: 29, valid: s => LSE.every(e => goodEdge(s, e)), key: piecesKey(['UL', 'UR', 'UFR']) },
+  LSE_ULUR: { keep: [...FB, ...SB], expected: 30, valid: s => LSE.every(e => goodEdge(s, e)), key: piecesKey(['UL', 'UR', 'UFR']) },
   LSE_L4E: { keep: [...FB, ...SB, 'UL', 'UR', ...LL_CORNERS], expected: 11, valid: s => LSE.every(e => goodEdge(s, e)), key: s => s },
   EDGE_DL: { keep: [], expected: 23, key: s => locate(s, 'DL') },
   EDGE_DB: { keep: ['DL'], expected: 21, key: s => locate(s, 'DB') },
@@ -161,8 +161,51 @@ export function checkCases(name, algs) {
   return { kind: name, cases: seen.size, expected: rule.expected, complete: seen.size === rule.expected && !problems.length, problems };
 }
 
+// ---------- Stuck pieces ----------
+// Each freeing sequence must bring the piece to the top layer (in the
+// solver's view) and leave what is already solved intact.
+const NORMAL3 = { R: [1, 0, 0], L: [-1, 0, 0], U: [0, 1, 0], D: [0, -1, 0], F: [0, 0, 1], B: [0, 0, -1] };
+const timesV = (m, v) => m.map(r => r[0] * v[0] + r[1] * v[1] + r[2] * v[2]);
+function cubie(state, name) {
+  return Object.values(pieces).find(idx => idx.length === name.length && idx.every(i => name.includes(state[i])) && [...name].every(c => idx.some(i => state[i] === c)));
+}
+function inPlace(state, orient, name) {
+  const idx = cubie(state, name);
+  return [...name].every(c => timesV(orient, TILES[idx.find(j => state[j] === c)].normal).every((v, a) => v === NORMAL3[c][a]));
+}
+const onTop = (state, orient, name) => timesV(orient, TILES[cubie(state, name)[0]].position)[1] === 1;
+const CROSS4 = ['DF', 'DR', 'DB', 'DL'];
+const RIGHT_KEEP = ['DF', 'DB', 'DL', 'DR', 'DLB', 'DFL', 'BL', 'FL'];
+export const STUCK_RULES = {
+  F2L_STUCK: { keep: CROSS4 },
+  CORNER_STUCK: { keep: CROSS4, moves: "R U R' U'" },
+  EDGE_STUCK: { keep: [...CROSS4, 'DRF', 'DBR', 'DLB', 'DFL'], moves: "U R U' R' U' F' U F" },
+  RU_STUCK: { keep: RIGHT_KEEP }, RU_BACK_STUCK: { keep: RIGHT_KEEP },
+  FB_STUCK: { keep: ['DL', 'DLB', 'BL'] }, FB_BACK_STUCK: { keep: ['DL', 'DFL', 'FL'] },
+  SB_STUCK: { keep: [...FB, 'DR', 'DBR', 'BR'] }, SB_BACK_STUCK: { keep: [...FB, 'DR', 'DRF', 'FR'] },
+  PETRUS_BL_STUCK: { keep: ['DL', 'DB'] }, PETRUS_FL_STUCK: { keep: [...BLOCK222, 'DF'] },
+};
+export function checkStuck(name, list) {
+  const rule = STUCK_RULES[name];
+  const problems = [];
+  const seen = new Set();
+  for (const c of list) {
+    const label = `${name} ${c.piece}@${c.at}`;
+    const start = run(solved, IDENTITY, parse(c.setup));
+    const slot = Object.entries(pieces).find(([, idx]) => idx.includes(cubie(start.state, c.piece).find(i => start.state[i] === c.piece[0])))[0];
+    if (!rule.keep.every(n => inPlace(start.state, start.orient, n))) problems.push(`${label}: setup breaks the solved part`);
+    const end = run(start.state, start.orient, parse(rule.moves ?? c.moves));
+    if (!onTop(end.state, end.orient, c.piece)) problems.push(`${label}: does not bring the piece up`);
+    if (!rule.keep.every(n => inPlace(end.state, end.orient, n))) problems.push(`${label}: breaks the solved part`);
+    if (seen.has(`${c.piece}@${c.at}`)) problems.push(`${label}: duplicate position`);
+    seen.add(`${c.piece}@${c.at}`);
+    if (!c.at.startsWith(slot)) problems.push(`${label}: piece is not where the case says`);
+  }
+  return { kind: name, cases: list.length, problems };
+}
+
 if (typeof process !== 'undefined' && process.argv?.[1] && import.meta.url.split('?')[0] === `file:///${process.argv[1].replaceAll('\\', '/')}`) {
-  const sets = await import('./algs.mjs?v=202611161257');
+  const sets = await import('./algs.mjs?v=202611161352');
   const { OLL, PLL, F2L } = sets;
   for (const [kind, algs] of [['oll', OLL], ['pll', PLL], ['f2l', Object.fromEntries(F2L.map((a, i) => [i + 1, a]))]]) {
     const result = checkSet(kind, algs);
@@ -174,6 +217,12 @@ if (typeof process !== 'undefined' && process.argv?.[1] && import.meta.url.split
     const result = checkCases(name, sets[name]);
     failed ||= !result.complete;
     console.log(`${name}: ${result.cases}/${result.expected} cases${result.problems.length ? '' : ', no problems'}`);
+    for (const p of result.problems) console.log('  -', p);
+  }
+  for (const [name, list] of Object.entries(sets.STUCK)) {
+    const result = checkStuck(name, list);
+    failed ||= result.problems.length > 0;
+    console.log(`${name}: ${result.cases} stuck positions${result.problems.length ? '' : ', no problems'}`);
     for (const p of result.problems) console.log('  -', p);
   }
   if (failed) process.exitCode = 1;

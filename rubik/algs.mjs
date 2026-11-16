@@ -117,7 +117,8 @@ export const CMLL = ["F R2 F2 U R' U R U2 F2 R2 F'", "F U F' U' R2 F2 L F' L' F2
 // LSE edge orientation (M and U only), yellow center on top.
 export const LSE_EO = ["M U' M'", "M' U' M", "M2 U' M' U' M'", "M U' M U' M' U' M'", "M U M U' M' U' M'", "M' U' M' U2 M' U' M'", "M' U2 M' U2 M' U' M'", "M U2 M U2 M' U' M'", "M U' M' U' M U' M'", "M U M' U' M U' M'", "M' U' M' U2 M' U' M U' M' U' M'"];
 // LSE: the left and right top edges, keeping edge orientation.
-export const LSE_ULUR = ["M2 U' M2", "M2 U M2", "M U2 M' U'", "M' U2 M U'", "M2 U' M2 U'", "M2 U M2 U'", "M2 U2 M2 U'", "M U2 M' U", "M' U2 M U", "M' U2 M' U' M2", "M U2 M U' M2", "M' U2 M' U M2", "M U2 M U M2", "M2 U' M' U2 M' U'", "M2 U M' U2 M' U'", "M2 U' M U2 M U'", "M2 U M U2 M U'", "M' U2 M' U' M2 U'", "M U2 M U' M2 U'", "M' U2 M' U M2 U'", "M U2 M U M2 U'", "M' U2 M' U' M2 U", "M U2 M U' M2 U", "M' U2 M' U M2 U", "M U2 M U M2 U", "M2 U' M U2 M' U' M2", "M2 U M U2 M' U' M2", "M2 U' M' U2 M U' M2", "M2 U M' U2 M U' M2"];
+export const LSE_ULUR = [
+  "U'","M2 U' M2", "M2 U M2", "M U2 M' U'", "M' U2 M U'", "M2 U' M2 U'", "M2 U M2 U'", "M2 U2 M2 U'", "M U2 M' U", "M' U2 M U", "M' U2 M' U' M2", "M U2 M U' M2", "M' U2 M' U M2", "M U2 M U M2", "M2 U' M' U2 M' U'", "M2 U M' U2 M' U'", "M2 U' M U2 M U'", "M2 U M U2 M U'", "M' U2 M' U' M2 U'", "M U2 M U' M2 U'", "M' U2 M' U M2 U'", "M U2 M U M2 U'", "M' U2 M' U' M2 U", "M U2 M U' M2 U", "M' U2 M' U M2 U", "M U2 M U M2 U", "M2 U' M U2 M' U' M2", "M2 U M U2 M' U' M2", "M2 U' M' U2 M U' M2", "M2 U M' U2 M U' M2"];
 // LSE: the last four edges (M slice).
 export const LSE_L4E = ["U2 M U2 M'", "U2 M' U2 M", "U2 M2 U2 M2", "M U2 M' U2", "M' U2 M U2", "M2 U2 M' U2 M'", "M' U2 M2 U2 M'", "M2 U2 M U2 M", "M' U2 M' U2 M2", "M U2 M U2 M2", "U2 M' U2 M2 U2 M' U2"];
 // Roux second block: bottom-right edge, with R, r, U, M.
@@ -160,3 +161,138 @@ export const SB_BACK = SB_PAIR.map(a => mirror(a, 'z'));
 export const FB_PAIR = SB_PAIR.map(a => mirror(a, 'x'));
 export const FB_BACK = SB_BACK.map(a => mirror(a, 'x'));
 export const RU_BACK = RU_PAIR.map(a => mirror(a, 'z'));
+
+// Free a stuck piece: for every place a piece of a pair/slot step can be
+// stuck, a start position (setup from solved, the solved part intact) and the
+// shortest moves, allowed in that step, that bring it to the top layer. Found
+// by search; checked by verify.mjs.
+export const STUCK = {
+  F2L_STUCK: [
+    { piece: "DBR", at: "DRF0", setup: "R' U' R F' U2 F", moves: "R U R'" },
+    { piece: "DBR", at: "DRF1", setup: "R' U' R2 U2 R'", moves: "R U R'" },
+    { piece: "DBR", at: "DRF2", setup: "F' B U F B'", moves: "R U R'" },
+    { piece: "BR", at: "FR0", setup: "R2 F R2 F'", moves: "R U R'" },
+    { piece: "BR", at: "FR1", setup: "F D R D' F'", moves: "R U R'" },
+  ],
+  CORNER_STUCK: [
+    { piece: "DRF", at: "DRF1", setup: "R U L' U2 R' L", moves: "R U R'" },
+    { piece: "DRF", at: "DRF2", setup: "R U' F R2 F' R'", moves: "R U R'" },
+    { piece: "DBR", at: "DRF0", setup: "R' U' R F' U2 F", moves: "R U R'" },
+    { piece: "DBR", at: "DRF1", setup: "R' U' R2 U2 R'", moves: "R U R'" },
+    { piece: "DBR", at: "DRF2", setup: "F' B U F B'", moves: "R U R'" },
+  ],
+  EDGE_STUCK: [
+    { piece: "FR", at: "FR1", setup: "U R U' R' U' F' U F U2 U R U' R' U' F' U F", moves: "R2 U2 R U2 R2" },
+    { piece: "BR", at: "FR0", setup: "U B U' B' U' R' U R U' U R U' R' U' F' U F", moves: "R2 U2 R U2 R2" },
+    { piece: "BR", at: "FR1", setup: "U' R' U R U B U' B' U R U' R' U' F' U F", moves: "R2 U2 R U2 R2" },
+  ],
+  RU_STUCK: [
+    { piece: "DRF", at: "DBR0", setup: "R U R' U2 R' U' R", moves: "R' U R" },
+    { piece: "DRF", at: "DBR1", setup: "R U' R' U' R' U' R", moves: "R' U R" },
+    { piece: "DRF", at: "DBR2", setup: "R U R' R' U2 R", moves: "R' U R" },
+    { piece: "FR", at: "BR0", setup: "R U R' R' U' R", moves: "R' U R" },
+  ],
+  RU_BACK_STUCK: [
+    { piece: "DBR", at: "DRF0", setup: "R' U R U' R U2 R'", moves: "R U R'" },
+    { piece: "DBR", at: "DRF1", setup: "R' U' R R U2 R'", moves: "R U R'" },
+    { piece: "DBR", at: "DRF2", setup: "R' U R U R U R'", moves: "R U R'" },
+    { piece: "BR", at: "FR0", setup: "R' U R R U' R'", moves: "R U R'" },
+  ],
+  FB_STUCK: [
+    { piece: "DFL", at: "DRF0", setup: "F U' R'", moves: "R" },
+    { piece: "DFL", at: "DRF1", setup: "F'", moves: "R" },
+    { piece: "DFL", at: "DRF2", setup: "F2 R'", moves: "R" },
+    { piece: "DFL", at: "DBR0", setup: "F2 R2", moves: "R'" },
+    { piece: "DFL", at: "DBR1", setup: "F U' R2", moves: "R'" },
+    { piece: "DFL", at: "DBR2", setup: "F' R'", moves: "R'" },
+    { piece: "FL", at: "FR0", setup: "F2", moves: "R" },
+    { piece: "FL", at: "FR1", setup: "F U' R'", moves: "R" },
+    { piece: "FL", at: "BR0", setup: "F2 R2", moves: "R'" },
+    { piece: "FL", at: "BR1", setup: "F U' R", moves: "R'" },
+    { piece: "FL", at: "DF0", setup: "L D L'", moves: "F2" },
+    { piece: "FL", at: "DF1", setup: "F'", moves: "F2" },
+    { piece: "FL", at: "DB0", setup: "L D' L'", moves: "M" },
+    { piece: "FL", at: "DB1", setup: "L2 B L2", moves: "M" },
+    { piece: "FL", at: "DR0", setup: "F2 R'", moves: "R2" },
+    { piece: "FL", at: "DR1", setup: "F U' R2", moves: "R2" },
+  ],
+  FB_BACK_STUCK: [
+    { piece: "DLB", at: "DRF0", setup: "B2 R2", moves: "R" },
+    { piece: "DLB", at: "DRF1", setup: "B R", moves: "R" },
+    { piece: "DLB", at: "DRF2", setup: "B' U R2", moves: "R" },
+    { piece: "DLB", at: "DBR0", setup: "B R' B'", moves: "R'" },
+    { piece: "DLB", at: "DBR1", setup: "B2 R", moves: "R'" },
+    { piece: "DLB", at: "DBR2", setup: "B", moves: "R'" },
+    { piece: "BL", at: "FR0", setup: "B2 R2", moves: "R" },
+    { piece: "BL", at: "FR1", setup: "B' U R'", moves: "R" },
+    { piece: "BL", at: "BR0", setup: "B2", moves: "R'" },
+    { piece: "BL", at: "BR1", setup: "B' U R", moves: "R'" },
+    { piece: "BL", at: "DF0", setup: "L' D L", moves: "M'" },
+    { piece: "BL", at: "DF1", setup: "L2 F' L2", moves: "M'" },
+    { piece: "BL", at: "DB0", setup: "L' D' L", moves: "B2" },
+    { piece: "BL", at: "DB1", setup: "B", moves: "B2" },
+    { piece: "BL", at: "DR0", setup: "B2 R", moves: "R2" },
+    { piece: "BL", at: "DR1", setup: "D B D'", moves: "R2" },
+  ],
+  SB_STUCK: [
+    { piece: "FR", at: "DF0", setup: "R' L2 D' R L2", moves: "M'" },
+    { piece: "FR", at: "DF1", setup: "L F L'", moves: "M'" },
+    { piece: "FR", at: "DB0", setup: "R' L2 D R L2", moves: "M" },
+    { piece: "FR", at: "DB1", setup: "R2 L' B' R2 L", moves: "M" },
+  ],
+  SB_BACK_STUCK: [
+    { piece: "BR", at: "DF0", setup: "R L2 D' R' L2", moves: "M'" },
+    { piece: "BR", at: "DF1", setup: "R2 L F R2 L'", moves: "M'" },
+    { piece: "BR", at: "DB0", setup: "R L2 D R' L2", moves: "M" },
+    { piece: "BR", at: "DB1", setup: "L' B' L", moves: "M" },
+  ],
+  PETRUS_BL_STUCK: [
+    { piece: "DLB", at: "DFL0", setup: "L U R2 L' F", moves: "F" },
+    { piece: "DLB", at: "DFL1", setup: "L U2 L' F2", moves: "F" },
+    { piece: "DLB", at: "DFL2", setup: "L2 F L2 F2", moves: "F" },
+    { piece: "DLB", at: "DRF0", setup: "L2 F2 L2", moves: "R" },
+    { piece: "DLB", at: "DRF1", setup: "L U R2 L'", moves: "R" },
+    { piece: "DLB", at: "DRF2", setup: "L U2 F L'", moves: "R" },
+    { piece: "DLB", at: "DBR0", setup: "L U' F R2 L'", moves: "R'" },
+    { piece: "DLB", at: "DBR1", setup: "L U2 R2 L'", moves: "R'" },
+    { piece: "DLB", at: "DBR2", setup: "L U R L'", moves: "R'" },
+    { piece: "BL", at: "FL0", setup: "D' L2 D", moves: "F" },
+    { piece: "BL", at: "FL1", setup: "D' L' D F", moves: "F" },
+    { piece: "BL", at: "FR0", setup: "L2 F2 L2", moves: "R" },
+    { piece: "BL", at: "FR1", setup: "D B D' R", moves: "R" },
+    { piece: "BL", at: "BR0", setup: "D B2 D'", moves: "R'" },
+    { piece: "BL", at: "BR1", setup: "D B D' R'", moves: "R'" },
+    { piece: "BL", at: "DF0", setup: "D' L' D", moves: "F2" },
+    { piece: "BL", at: "DF1", setup: "D2 B D2", moves: "F2" },
+    { piece: "BL", at: "DR0", setup: "D2 L' D2", moves: "R2" },
+    { piece: "BL", at: "DR1", setup: "D B D'", moves: "R2" },
+  ],
+  PETRUS_FL_STUCK: [
+    { piece: "DFL", at: "DRF0", setup: "F U F' U2 R'", moves: "R" },
+    { piece: "DFL", at: "DRF1", setup: "F U2 F' R2", moves: "R" },
+    { piece: "DFL", at: "DRF2", setup: "F2 R F2 R2", moves: "R" },
+    { piece: "DFL", at: "DBR0", setup: "F2 R2 F2", moves: "R'" },
+    { piece: "DFL", at: "DBR1", setup: "F U' R2 F'", moves: "R'" },
+    { piece: "DFL", at: "DBR2", setup: "F U2 R F'", moves: "R'" },
+    { piece: "FL", at: "FR0", setup: "D' F2 D", moves: "R" },
+    { piece: "FL", at: "FR1", setup: "F U' F' R'", moves: "R" },
+    { piece: "FL", at: "BR0", setup: "F2 R2 F2", moves: "R'" },
+    { piece: "FL", at: "BR1", setup: "F U' R F'", moves: "R'" },
+    { piece: "FL", at: "DR0", setup: "F2 R' F2", moves: "R2" },
+    { piece: "FL", at: "DR1", setup: "D' F' D", moves: "R2" },
+  ],
+};
+
+// Edge-orientation steps: one case per place a bad edge can be outside the
+// area the cases expect, with the move that brings it in (never changes
+// good/bad). Found by search; checked by verify.mjs.
+export const EO_BRING = {
+  ZZ: [
+    { at: 'UR', setup: "F U'", moves: 'U' }, { at: 'UB', setup: 'F U2', moves: 'U2' }, { at: 'UL', setup: 'F U', moves: "U'" },
+    { at: 'DR', setup: 'F D', moves: "D'" }, { at: 'DB', setup: 'F D2', moves: 'D2' }, { at: 'DL', setup: "F D'", moves: 'D' },
+    { at: 'BR', setup: 'F R2', moves: 'R2' }, { at: 'BL', setup: 'F L2', moves: 'L2' },
+  ],
+  PETRUS: [
+    { at: 'FR', setup: "F' U F", moves: 'R' }, { at: 'BR', setup: "F R2 F'", moves: "R'" }, { at: 'DR', setup: "F R' F'", moves: 'R2' },
+  ],
+};

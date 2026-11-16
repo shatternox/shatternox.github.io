@@ -2,16 +2,16 @@
 // The beginner method comes from tree.mjs; CFOP is built from the verified
 // algorithm sets in algs.mjs. Case pictures are generated from the
 // algorithms themselves, so a picture and its moves can never disagree.
-import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161257';
-import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161257';
-import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161257';
-import { lessons, algNames } from './lessons.mjs?v=202611161257';
-import { tree, goalState } from './tree.mjs?v=202611161257';
+import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161352';
+import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161352';
+import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161352';
+import { lessons, algNames } from './lessons.mjs?v=202611161352';
+import { tree, goalState } from './tree.mjs?v=202611161352';
 import {
   OLL, PLL, F2L, CROSS, CMLL, LSE_EO, LSE_ULUR, LSE_L4E, EDGE_DL, EDGE_DB, SB_EDGE, SB_PAIR, SB_BACK, FB_PAIR, FB_BACK,
-  ZZ_EO, ZZ_LINE, ZZ_EDGE, RU_PAIR, RU_BACK, PETRUS_BL, PETRUS_DF, PETRUS_FL, PETRUS_EO,
-} from './algs.mjs?v=202611161257';
-import { goodEdge } from './verify.mjs?v=202611161257';
+  ZZ_EO, ZZ_LINE, ZZ_EDGE, RU_PAIR, RU_BACK, PETRUS_BL, PETRUS_DF, PETRUS_FL, PETRUS_EO, STUCK, EO_BRING,
+} from './algs.mjs?v=202611161352';
+import { goodEdge } from './verify.mjs?v=202611161352';
 
 const SIDE_WORDS = { F: 'front', R: 'right', B: 'back', L: 'left' };
 const U = k => [[], ['U'], ['U2'], ["U'"]][((k % 4) + 4) % 4];
@@ -131,7 +131,10 @@ function f2lStep() {
     cases: F2L.map((alg, i) => {
       const c = fromAlg(`f${i + 1}`, alg, { name: `F2L ${i + 1}` });
       return { ...c, group: f2lFeatures(c.start.state), label: `F2L ${i + 1}`, focus: focusFor(['DRF', 'FR']) };
-    }),
+    }).concat(stuckCases('f', null, STUCK.F2L_STUCK, {
+      heading: 'A piece is stuck in another slot',
+      hint: 'Your corner or edge is stuck in a different slot. Turn the whole cube so that slot is at the front-right, like the picture (a wrong piece sits there). R U R′ lifts it out to the top; then turn back to your empty slot and look again.',
+    }).map(c => ({ ...c, label: c.label.replace('stuck middle front-right', 'in another slot (held front-right)').replace('stuck bottom front-right', 'in another slot (held front-right)') }))),
   };
 }
 
@@ -266,6 +269,49 @@ function pairCases(prefix, part, corner, edge, algs, extra = {}) {
     return { ...c, group: [part, ...pairFeatures(c.start.state, corner, edge)], label: `${part} ${i + 1}`, focus: focusFor([corner, edge]) };
   });
 }
+// ---------- Stuck pieces: free them first ----------
+const FACE_WORD = { U: 'up', D: 'down', F: 'facing you', B: 'facing the back', R: 'facing right', L: 'facing left' };
+const SLOT_WORD = {
+  DRF: 'bottom front-right', DBR: 'bottom back-right', DLB: 'bottom back-left', DFL: 'bottom front-left',
+  FR: 'middle front-right', BR: 'middle back-right', BL: 'middle back-left', FL: 'middle front-left',
+  DF: 'bottom front', DB: 'bottom back', DR: 'bottom right', DL: 'bottom left',
+  UF: 'top front', UR: 'top right', UB: 'top back', UL: 'top left',
+};
+const COLOR_WORD = { U: 'yellow', D: 'white', F: 'green', B: 'blue', R: 'orange', L: 'red' };
+export function stuckWords(piece, at) {
+  const slot = at.slice(0, -1);
+  const facing = FACE_WORD[slot[Number(at.at(-1))]];
+  const what = piece.length === 3 ? `white ${facing}` : `${COLOR_WORD[piece[0]]} ${facing}`;
+  return { where: SLOT_WORD[slot], what };
+}
+function fromSetup(key, setup, moves, extra) {
+  const start = run(solved, IDENTITY, parse(setup));
+  const list = parse(moves);
+  const frames = [start];
+  for (const move of list) frames.push(run(frames.at(-1).state, frames.at(-1).orient, [move]));
+  return {
+    key, alg: moves, start, frames,
+    moves: list.map(move => ({ move, block: 0 })),
+    blocks: [{ kind: 'alg', label: extra.name ?? 'Free it', moves: list }],
+    ...extra,
+  };
+}
+// Group: [part?, 'stuck' heading, ...]. Pieces stuck anywhere off the top
+// layer and their own spot get their own picture each.
+function stuckCases(prefix, part, set, { heading = 'A piece is stuck: free it first', hint, moves } = {}) {
+  return set.map((c, i) => {
+    const { where, what } = stuckWords(c.piece, c.at);
+    const kind = c.piece.length === 3 ? 'Corner' : 'Edge';
+    return {
+      ...fromSetup(`${prefix}x${i}`, c.setup, moves ?? c.moves, { name: 'Free it' }),
+      group: [...(part ? [part] : []), heading],
+      label: `${kind} stuck ${where}, ${what}`,
+      hint: hint ?? `The ${kind.toLowerCase()} is stuck at the ${where} (${what}). These moves bring it up to the top layer without touching what you’ve solved. Then look again: it will be one of the normal pictures.`,
+      focus: focusFor([c.piece]),
+    };
+  });
+}
+
 // Pictures of left-side steps are drawn from the front-left.
 const fromLeft = c => ({ ...c, start: { ...c.start, yaw: 3 } });
 
@@ -316,7 +362,9 @@ function rouxSteps() {
     cases: [
       ...edgeCases('fe', 'Bottom-left edge', 'DL', EDGE_DL, false).map(fromLeft),
       ...pairCases('fp', 'Front pair', 'DFL', 'FL', FB_PAIR).map(fromLeft),
+      ...stuckCases('fp', 'Front pair', STUCK.FB_STUCK, { heading: 'Stuck in the bottom or another slot: free it first' }).map(fromLeft),
       ...pairCases('fq', 'Back pair', 'DLB', 'BL', FB_BACK).map(fromLeft),
+      ...stuckCases('fq', 'Back pair', STUCK.FB_BACK_STUCK, { heading: 'Stuck in the bottom or another slot: free it first' }).map(fromLeft),
     ],
   }, {
     id: 'sb', name: 'Second block', art: 'iso', mask: sbMask, goal: solved,
@@ -333,7 +381,9 @@ function rouxSteps() {
     cases: [
       ...edgeCases('se', 'Bottom-right edge', 'DR', SB_EDGE, true),
       ...pairCases('sp', 'Front pair', 'DRF', 'FR', SB_PAIR),
+      ...stuckCases('sp', 'Front pair', STUCK.SB_STUCK, { heading: 'Edge stuck in the bottom middle: free it first' }),
       ...pairCases('sq', 'Back pair', 'DBR', 'BR', SB_BACK),
+      ...stuckCases('sq', 'Back pair', STUCK.SB_BACK_STUCK, { heading: 'Edge stuck in the bottom middle: free it first' }),
     ],
   }, {
     id: 'cmll', name: 'CMLL', art: 'top', mask: blockMask([...FB, ...SB, ...U_CORNERS], 'LR'), goal: solved,
@@ -423,7 +473,9 @@ function f2lFinish(prefix, edgeAlgs) {
   return [
     ...edgeCases(`${prefix}e`, 'Bottom-right edge', 'DR', edgeAlgs, true),
     ...pairCases(`${prefix}p`, 'Front-right pair', 'DRF', 'FR', RU_PAIR),
+    ...stuckCases(`${prefix}p`, 'Front-right pair', STUCK.RU_STUCK, { heading: 'Stuck in the back-right slot: free it first' }),
     ...pairCases(`${prefix}q`, 'Back-right pair', 'DBR', 'BR', RU_BACK),
+    ...stuckCases(`${prefix}q`, 'Back-right pair', STUCK.RU_BACK_STUCK, { heading: 'Stuck in the front-right slot: free it first' }),
   ];
 }
 
@@ -440,10 +492,18 @@ function zzSteps() {
     look: 'Find the bad edges (key color facing the wrong way) and bring them to the front face. How many, and where?',
     done: 'All 12 edges good',
     hint: 'Only the key stickers are shown. Get your bad edges onto the front face like the picture.',
-    cases: eoCases('ze', ZZ_EO, ALL_EDGES).map(c => {
-      const words = c.bad.map(s => ({ UF: 'top', FR: 'right', DF: 'bottom', FL: 'left' })[s]);
-      return { ...c, label: c.bad.length === 4 ? '4 bad, all on the front' : `2 bad on the front: ${words.join(' and ')}` };
-    }),
+    cases: [
+      ...eoCases('ze', ZZ_EO, ALL_EDGES).map(c => {
+        const words = c.bad.map(s => ({ UF: 'top', FR: 'right', DF: 'bottom', FL: 'left' })[s]);
+        return { ...c, group: ['All bad edges are on the front'], label: c.bad.length === 4 ? '4 bad, all on the front' : `2 bad on the front: ${words.join(' and ')}` };
+      }),
+      ...EO_BRING.ZZ.map((c, i) => ({
+        ...fromSetup(`zb${i}`, c.setup, c.moves, { name: 'Bring it to the front' }),
+        group: ['A bad edge is not on the front yet'],
+        label: `Bad edge at the ${SLOT_WORD[c.at]}`,
+        hint: `A bad edge sits at the ${SLOT_WORD[c.at]}, and the front spot on the same layer is still good. This one turn brings it onto the front without changing any edge from good to bad. Repeat for each bad edge, then pick the front case.`,
+      })),
+    ],
   }, {
     id: 'zz-line', name: 'Line', art: 'iso', mask: blockMask(['DF', 'DB'], 'DFB'), goal: solved,
     summary: 'The bottom-front and bottom-back edges in place: a white line on the bottom.',
@@ -493,6 +553,7 @@ function petrusSteps() {
       ...edgeCases('pa', 'Bottom-left edge', 'DL', EDGE_DL, false),
       ...edgeCases('pb', 'Bottom-back edge', 'DB', EDGE_DB, false),
       ...pairCases('pc', 'Back-left pair', 'DLB', 'BL', PETRUS_BL),
+      ...stuckCases('pc', 'Back-left pair', STUCK.PETRUS_BL_STUCK, { heading: 'Stuck in the bottom or another slot: free it first' }),
     ].map(fromLeft),
   }, {
     id: 'p223', name: '2×2×3 block', art: 'iso', yaw: 3, mask: blockMask(P223, 'DLBF'), goal: solved,
@@ -508,6 +569,7 @@ function petrusSteps() {
     cases: [
       ...edgeCases('pd', 'Bottom-front edge', 'DF', PETRUS_DF, true),
       ...pairCases('pe', 'Front-left pair', 'DFL', 'FL', PETRUS_FL),
+      ...stuckCases('pe', 'Front-left pair', STUCK.PETRUS_FL_STUCK, { heading: 'Stuck in the bottom or another slot: free it first' }),
     ].map(fromLeft),
   }, {
     id: 'p-eo', name: 'Edge orientation', art: 'iso', mask: blockMask(P223, 'URFDLB', ALL_EDGES), goal: solved,
@@ -521,7 +583,15 @@ function petrusSteps() {
     look: 'Find the bad edges among the top and right-side edges, and bring them to the top. How many, and where?',
     done: 'All edges good',
     hint: 'Only key stickers are shown. Turn the top until your bad edges sit like the picture.',
-    cases: eoCases('po', PETRUS_EO, ALL_EDGES).map(c => ({ ...c, label: c.bad.length === 4 ? '4 bad, all on top' : opposite(c.bad) ? '2 bad, opposite' : '2 bad, side by side' })),
+    cases: [
+      ...eoCases('po', PETRUS_EO, ALL_EDGES).map(c => ({ ...c, group: ['All bad edges are on top'], label: c.bad.length === 4 ? '4 bad, all on top' : opposite(c.bad) ? '2 bad, opposite' : '2 bad, side by side' })),
+      ...EO_BRING.PETRUS.map((c, i) => ({
+        ...fromSetup(`pb${i}`, c.setup, c.moves, { name: 'Bring it up' }),
+        group: ['A bad edge is on the right side'],
+        label: `Bad edge at the ${SLOT_WORD[c.at]}`,
+        hint: `A bad edge sits at the ${SLOT_WORD[c.at]}. First turn the top so the top-right spot holds a good edge, then this R turn brings the bad edge up. Then pick the top case.`,
+      })),
+    ],
   }, {
     id: 'p-f2l', name: 'Finish F2L', art: 'iso', mask: f2lMask, goal: solved,
     summary: 'The rest of the first two layers with only R and U.',
@@ -537,6 +607,39 @@ function petrusSteps() {
   }, ollStep(['21', '22', '23', '24', '25', '26', '27']), pllStep()];
 }
 
+// Beginner situations that share moves but look different get a picture each.
+function beginnerExtras(stage) {
+  if (stage === 0) {
+    // The middle-row case on the left side (the main card shows the right).
+    return [{
+      ...fromSetup('middle-left', "F2 R2 B2 L2 L", "L'", { name: 'Bring it up' }),
+      group: [], label: 'White facing you, middle row, left side',
+      hint: 'White faces you, middle row, on the left. Is the top-left spot above it already white? Turn the top (U) until it isn’t. Then L′ lifts it up.',
+      focus: focusFor(['DL']),
+    }];
+  }
+  if (stage === 2) {
+    return stuckCases('b2', null, STUCK.CORNER_STUCK, {
+      moves: "R U R' U'",
+      hint: 'A white corner is in the bottom layer but wrong: twisted in its own spot, or in another corner’s spot. Turn the whole cube so it is at the bottom front-right, like the picture. Do R U R′ U′ once: it comes up to the top. Then look again and insert it like the other top cases.',
+    }).map((c, i) => {
+      const { piece, at } = STUCK.CORNER_STUCK[i];
+      const { what } = stuckWords(piece, at);
+      return { ...c, group: [], label: piece === 'DRF' ? `Corner in its own spot but twisted (${what})` : `Wrong corner in this spot (${what})` };
+    });
+  }
+  if (stage === 3) {
+    return stuckCases('b3', null, STUCK.EDGE_STUCK, {
+      moves: "U R U' R' U' F' U F",
+      hint: 'A middle-layer edge is in the wrong slot, or in its own slot but flipped. Turn the whole cube so that slot is at the front-right, like the picture. Do the right insert once (U R U′ R′ U′ F′ U F): it pops the edge up to the top. Then look again and insert it properly.',
+    }).map((c, i) => {
+      const { piece, at } = STUCK.EDGE_STUCK[i];
+      return { ...c, group: [], label: piece === 'FR' ? 'Edge in its own slot but flipped' : `Wrong edge in this slot (colors ${at.endsWith('0') ? 'one way' : 'the other way'})` };
+    });
+  }
+  return [];
+}
+
 // The beginner method, as the same kind of data.
 function beginnerSteps() {
   return tree.map((step, stage) => {
@@ -546,7 +649,11 @@ function beginnerSteps() {
       id: `b${stage}`, name: step.name, art: lesson.art, mask: s => relevance(stage, s), goal: goalState(stage),
       summary: lesson.goal, how: lesson.how, look: step.look, done: step.done,
       memo: algs.map(key => ({ name: algNames[key], moves: ALGS[key] })),
-      cases: step.cases.map(c => ({ ...c, group: [], focus: c.target ? s => [pieceLocation(s, c.target)] : undefined })),
+      cases: [
+        ...step.cases.filter(c => !(c.key === 'stuck' && (stage === 2 || stage === 3)))
+          .map(c => ({ ...c, group: [], focus: c.target ? s => [pieceLocation(s, c.target)] : undefined })),
+        ...beginnerExtras(stage),
+      ],
     };
   });
 }
