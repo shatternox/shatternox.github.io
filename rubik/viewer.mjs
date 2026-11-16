@@ -1,10 +1,11 @@
 import * as THREE from '../assets/vendor/three/three.module.min.js';
 import { tiles, turnSpec } from './cube.mjs';
+import { createHands } from './hands.mjs';
 import { palette } from './lessons.mjs';
 
 const vector = array => new THREE.Vector3(...array);
 const forward = new THREE.Vector3(0, 0, 1);
-const defaultView = new THREE.Vector3(2.3, 4.4, 9.6);
+const defaultView = new THREE.Vector3(3.6, 4.3, 9.1);
 
 function roundedBox(size, radius) {
   const geometry = new THREE.BoxGeometry(size, size, size, 8, 8, 8);
@@ -112,7 +113,12 @@ export function createViewer(container) {
   let up = new THREE.Vector3(0, 1, 0);
   let pointer;
   let motion;
+  const hands = createHands();
+  scene.add(hands.group);
+  let handsOn = true;
   function draw() {
+    hands.group.visible = handsOn;
+    hands.update(performance.now() / 1000, renderer.getPixelRatio() * Math.max(1.6, container.clientHeight / 230));
     camera.position.copy(pose);
     camera.up.copy(up);
     camera.lookAt(0, 0, 0);
@@ -120,6 +126,22 @@ export function createViewer(container) {
     renderer.render(scene, camera);
     container.dispatchEvent(new CustomEvent('cube-draw'));
   }
+  // Which hand makes a move, and the axis it turns about (solver's frame).
+  function handFor(move) {
+    const whole = move[0] === 'y';
+    const { axis, side, quarters } = turnSpec(whole ? 'U' + move.slice(1) : move);
+    const turn = new THREE.Vector3(0, 1, 0);
+    const worldAxis = new THREE.Vector3().setComponent(axis, 1).applyAxisAngle(turn, -yaw * Math.PI / 2).round();
+    const normal = worldAxis.clone().multiplyScalar(side);
+    const face = whole ? 'y' : normal.x > .5 ? 'R' : normal.x < -.5 ? 'L' : normal.y > .5 ? 'U' : normal.y < -.5 ? 'D' : normal.z > .5 ? 'F' : 'B';
+    const prime = quarters === -1;
+    const hand = face === 'y' ? 'both' : face === 'L' ? 'left' : face === 'U' ? (prime ? 'left' : 'right')
+      : face === 'D' ? (prime ? 'right' : 'left') : 'right';
+    // Gripping hands ride the layer; pushing hands only nudge.
+    const ratio = face === 'R' || face === 'L' || face === 'y' ? 1 : 0.32;
+    return { hand, axis: worldAxis, angle: -side * quarters * Math.PI / 2, ratio };
+  }
+
   // Arrow that wraps around the turning layer, hugging the faces you can see.
   const arrowMaterial = new THREE.MeshBasicMaterial({ color: 0xfff09a });
   const arrowEdge = new THREE.MeshBasicMaterial({ color: 0x1a2a20 });
@@ -182,6 +204,7 @@ export function createViewer(container) {
     resetModels();
     const spec = preview && preview[0] !== 'y' && turnSpec(preview);
     arrow = preview ? buildArrow(preview) : undefined;
+    hands.setActive(preview ? handFor(preview).hand : '');
     if (arrow) model.add(arrow);
     cubies.forEach(({ position, plastic }) => {
       plastic.material = focus && focus.every((value, axis) => value === position[axis]) ? focusBody
@@ -234,8 +257,20 @@ export function createViewer(container) {
     surface.addEventListener(event, () => { pointer = undefined; });
   }
 
+  // Keep the dots flowing while the cube is on screen.
+  let onScreen = true;
+  let idle = 0;
+  const tick = () => {
+    cancelAnimationFrame(idle);
+    if (!onScreen || (!handsOn && !hands.settling)) return;
+    if (motion === undefined) draw();
+    idle = requestAnimationFrame(tick);
+  };
+  new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting; tick(); }).observe(container);
   view();
+  tick();
   return {
+    setHands(on) { handsOn = on; draw(); tick(); },
     view,
     setState,
     get motion() { return motion; },
@@ -253,6 +288,8 @@ export function createViewer(container) {
       const whole = move[0] === 'y';
       const { axis, side, quarters } = turnSpec(whole ? 'U' + move.slice(1) : move);
       if (arrow) model.remove(arrow);
+      const grip = handFor(move);
+      hands.setActive(grip.hand);
       const pivot = new THREE.Group();
       model.add(pivot);
       for (const cubie of cubies) {
@@ -270,9 +307,11 @@ export function createViewer(container) {
           const ease = time * time * (3 - 2 * time);
           pivot.rotation[axes[axis]] = -side * quarters * Math.PI / 2 * ease;
           motion = ease;
+          hands.hold(grip.hand, grip.axis, grip.angle * grip.ratio * ease);
           draw();
           if (time < 1) animation = requestAnimationFrame(frame);
           else {
+            hands.release();
             motion = undefined;
             settle = undefined;
             resolve();

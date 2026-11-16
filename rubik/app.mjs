@@ -476,7 +476,7 @@ $('open-editor').addEventListener('click', () => { renderEditor(); $('editor').s
 $('resume').addEventListener('click', () => start(ownSolve.state, ownSolve.yaw, { mode: ownSolve.mode, colors: ownSolve.colors }));
 $('reset-view').addEventListener('click', () => view?.view());
 $('show-all').addEventListener('change', event => { showAll = event.target.checked; updateModel(); });
-$('show-hands').addEventListener('change', event => guide.setHands(event.target.checked));
+$('show-hands').addEventListener('change', event => view?.setHands(event.target.checked));
 $('prev').addEventListener('click', () => step(-1));
 $('next').addEventListener('click', () => step(1));
 $('play').addEventListener('click', playback);

@@ -221,7 +221,7 @@ button.chip:hover:not(:disabled) { border-color: #52745b; }
   html { scroll-behavior: auto; }
 }
 
-/* Guide overlay: face labels + ghost hands */
+/* Guide overlay: face labels */
 .guide { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .face-label {
   position: absolute; left: 0; top: 0; white-space: nowrap; font: 600 .66rem var(--mono); letter-spacing: .08em;
@@ -230,10 +230,6 @@ button.chip:hover:not(:disabled) { border-color: #52745b; }
 .face-label b { color: var(--gold); margin-left: 2px; }
 .face-F { font-size: .78rem; color: var(--ink); border-color: #52745b; }
 .face-label.turning { border-color: #fff09a; color: #fff09a; box-shadow: 0 0 0 2px #fff09a33; }
-.hand { position: absolute; left: 0; top: 0; overflow: visible; }
-.hand path { fill: #ffffff0d; stroke: #e8f2ea; stroke-opacity: .55; stroke-width: 2.2; stroke-dasharray: 2 5; stroke-linecap: round; stroke-linejoin: round; }
-.hand .knuckle { fill: none; stroke-opacity: .3; }
-.hand.active path { fill: #fff09a1f; stroke: #fff09a; stroke-opacity: .95; stroke-width: 2.6; }
 .toggles { display: inline-flex; gap: 12px; }
 
 /* How-to, formulas */
