@@ -311,7 +311,7 @@ button.chip:hover:not(:disabled) { border-color: var(--acid); }
 .input-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .input-actions .primary { flex: 1 1 auto; }
 
-/* Footer, dialogs, confetti */
+/* Footer, dialogs */
 .site-footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 56px; padding: 24px 0 36px; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
 .site-footer a { color: var(--ink); }
 .site-footer a:hover { color: var(--acid); }
@@ -327,7 +327,6 @@ button.chip:hover:not(:disabled) { border-color: var(--acid); }
 .notation-tile b { font: 500 1rem var(--mono); }
 .notation-tile span { color: var(--muted); font-size: .7rem; line-height: 1.25; }
 .notation-tile:hover { border-color: var(--acid); }
-.confetti { position: fixed; inset: 0; z-index: 50; width: 100vw; height: 100vh; pointer-events: none; }
 
 @media (max-width: 960px) {
   nav ul { display: none; }

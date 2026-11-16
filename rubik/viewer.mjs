@@ -1,8 +1,8 @@
 import * as THREE from '../assets/vendor/three/three.module.min.js';
-import { tiles } from './cube.mjs?v=202611161615';
-import { spec, IDENTITY } from './moves.mjs?v=202611161615';
-import { createHands } from './hands.mjs?v=202611161615';
-import { palette } from './lessons.mjs?v=202611161615';
+import { tiles } from './cube.mjs?v=202611161630';
+import { spec, IDENTITY } from './moves.mjs?v=202611161630';
+import { createHands } from './hands.mjs?v=202611161630';
+import { palette } from './lessons.mjs?v=202611161630';
 
 const vector = array => new THREE.Vector3(...array);
 const forward = new THREE.Vector3(0, 0, 1);

@@ -1,13 +1,13 @@
 // The coach: takes someone who has never solved a cube from "pick it up" to
 // solved, one move at a time, on their own cube.
-import { solved, applyMoves, showMove, inverse } from './cube.mjs?v=202611161615';
-import { planNext, play, currentStage, ALGS } from './method.mjs?v=202611161615';
-import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161615';
-import { moveIcon, describeMove } from './art.mjs?v=202611161615';
-import { createCubeInput } from './scan.mjs?v=202611161615';
-import { sfx, confetti } from './sfx.mjs?v=202611161615';
-import { getMethod } from './methods.mjs?v=202611161615';
-import { thumb, goalThumb, movesText } from './map.mjs?v=202611161615';
+import { solved, applyMoves, showMove, inverse } from './cube.mjs?v=202611161630';
+import { planNext, play, currentStage, ALGS } from './method.mjs?v=202611161630';
+import { standard, lessons, algNames } from './lessons.mjs?v=202611161630';
+import { moveIcon, describeMove } from './art.mjs?v=202611161630';
+import { createCubeInput } from './scan.mjs?v=202611161630';
+import { sfx } from './sfx.mjs?v=202611161630';
+import { getMethod } from './methods.mjs?v=202611161630';
+import { thumb, goalThumb, movesText } from './map.mjs?v=202611161630';
 
 const keyFor = id => (id === 'beginner' ? 'rubik-coach-v1' : `rubik-coach-v1-${id}`);
 const introMoves = ['R', "R'", 'U', "U'"];
@@ -349,7 +349,6 @@ export function createCoach(root, cube, methodId = 'beginner') {
     on('[data-done-step]', () => {
       if (stage === steps().length - 1) return set({ phase: 'solved' });
       sfx.fanfare(false);
-      confetti(Object.values(palette));
       set({ phase: 'stage', stage: stage + 1, won: stage, rounds: 0, path: [] });
     });
   }
@@ -484,7 +483,6 @@ export function createCoach(root, cube, methodId = 'beginner') {
     const lesson = lessons[stage];
     if (s.stageIntro !== undefined) {
       sfx.fanfare(false);
-      confetti(Object.values(palette));
     }
     cube.reset();
     cube.show({ state: s.state, yaw: s.yaw }, { colors: s.colors, all: true });
@@ -504,7 +502,6 @@ export function createCoach(root, cube, methodId = 'beginner') {
 
   function renderSolved() {
     sfx.fanfare(true);
-    confetti(Object.values(palette));
     cube.reset();
     cube.show({ state: solved, yaw: 0 }, { colors: s.colors ?? standard, all: true });
     const minutes = s.startedAt ? Math.max(1, Math.round((Date.now() - s.startedAt) / 60000)) : undefined;

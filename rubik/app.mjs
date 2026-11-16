@@ -1,15 +1,15 @@
-import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs?v=202611161615';
-import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs?v=202611161615';
-import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161615';
-import { examples } from './examples.mjs?v=202611161615';
-import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs?v=202611161615';
-import { createGuide } from './guide.mjs?v=202611161615';
-import { orientFromYaw, modelFace } from './moves.mjs?v=202611161615';
-import { createCoach } from './coach.mjs?v=202611161615';
-import { sfx } from './sfx.mjs?v=202611161615';
-import { music } from './music.mjs?v=202611161615';
-import { renderMap } from './map.mjs?v=202611161615';
-import { methodList, getMethod } from './methods.mjs?v=202611161615';
+import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs?v=202611161630';
+import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs?v=202611161630';
+import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161630';
+import { examples } from './examples.mjs?v=202611161630';
+import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs?v=202611161630';
+import { createGuide } from './guide.mjs?v=202611161630';
+import { orientFromYaw, modelFace } from './moves.mjs?v=202611161630';
+import { createCoach } from './coach.mjs?v=202611161630';
+import { sfx } from './sfx.mjs?v=202611161630';
+import { music } from './music.mjs?v=202611161630';
+import { renderMap } from './map.mjs?v=202611161630';
+import { methodList, getMethod } from './methods.mjs?v=202611161630';
 
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -597,7 +597,7 @@ function buildLogo() {
 buildLogo();
 
 setMode(location.hash === '#learn' ? 'learn' : location.hash === '#map' ? 'map' : 'coach', false);
-import('./viewer.mjs?v=202611161615').then(({ createViewer }) => {
+import('./viewer.mjs?v=202611161630').then(({ createViewer }) => {
   view = createViewer($('canvas'));
   guide.attach(view);
   $('fallback').hidden = true;

@@ -2,16 +2,16 @@
 // The beginner method comes from tree.mjs; CFOP is built from the verified
 // algorithm sets in algs.mjs. Case pictures are generated from the
 // algorithms themselves, so a picture and its moves can never disagree.
-import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161615';
-import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161615';
-import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161615';
-import { lessons, algNames } from './lessons.mjs?v=202611161615';
-import { tree, goalState } from './tree.mjs?v=202611161615';
+import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161630';
+import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161630';
+import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161630';
+import { lessons, algNames } from './lessons.mjs?v=202611161630';
+import { tree, goalState } from './tree.mjs?v=202611161630';
 import {
   OLL, PLL, F2L, CROSS, CMLL, LSE_EO, LSE_ULUR, LSE_L4E, EDGE_DL, EDGE_DB, SB_EDGE, SB_PAIR, SB_BACK, FB_PAIR, FB_BACK,
   ZZ_EO, ZZ_LINE, ZZ_EDGE, RU_PAIR, RU_BACK, PETRUS_BL, PETRUS_DF, PETRUS_FL, PETRUS_EO,
-} from './algs.mjs?v=202611161615';
-import { goodEdge } from './verify.mjs?v=202611161615';
+} from './algs.mjs?v=202611161630';
+import { goodEdge } from './verify.mjs?v=202611161630';
 
 const SIDE_WORDS = { F: 'front', R: 'right', B: 'back', L: 'left' };
 const U = k => [[], ['U'], ['U2'], ["U'"]][((k % 4) + 4) % 4];
