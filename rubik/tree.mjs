@@ -12,7 +12,7 @@ const daisy = applyMoves(solved, tokens('F2 R2 B2 L2'));
 const fromGoal = (goal, moves) => applyMoves(goal, inverse(tokens(moves)));
 
 const LOOK = [
-  'Find a white edge (white plus one other color) that isn’t on top with white facing up. Turn the whole cube so its white faces you.',
+  'No white on top yet? That’s normal: start with any white edge (white plus one other color) that isn’t on top with white facing up. If its white is on a side, turn the whole cube so the white faces you. If it’s on the bottom face, keep holding as is.',
   'Look at the white petals on top. Check each petal’s other color against the center below it.',
   'Find a corner with white in the top layer. Turn the top until it sits above its spot, and hold that spot at the front-right.',
   'Find a top edge with no yellow. Turn the top until its front color matches the center below, and face it.',
@@ -35,10 +35,10 @@ const DONE = [
 // Hand-made cases for the first two steps: the piece is shown where you hold it.
 const MANUAL = {
   0: {
-    middle: { moves: 'R', hold: 'White faces you in the middle row. On the right side → R. On the left side → L′. If the top spot it goes to is already white, turn the top (U) first.' },
-    top: { moves: "F U' R", hold: 'White faces you in the top row. F drops it to the middle, U′ makes room on top, R lifts it up.' },
-    bottom: { moves: "F L' F'", hold: 'White faces you in the bottom row. F brings it up to the middle, L′ lifts it, F′ puts the front back.' },
-    down: { state: applyMoves(daisy, tokens('U F2')), moves: 'F2', hold: 'White is on the bottom face. Turn the bottom (D) until it sits under a top spot that isn’t white, then F2.' },
+    middle: { moves: 'R', hold: 'White faces you in the middle row. First check the top spot right above it (top-right for R, top-left for L′): if it’s already white, turn the top (U) until it isn’t. Then: on the right side → R, on the left side → L′.' },
+    top: { moves: "F U' R", hold: 'White faces you in the top row. No need to make room first: F drops it to the middle, U′ makes room on top, R lifts it up.' },
+    bottom: { moves: "F L' F'", hold: 'White faces you in the bottom row. If the top-left spot is already white, turn the top (U) until it isn’t. Then: F brings it to the middle, L′ lifts it, F′ puts the front back.' },
+    down: { state: applyMoves(daisy, tokens('U F2')), moves: 'F2', hold: 'White is on the bottom face. Turn the bottom (D) until the piece is at the front. If the top-front spot is already white, turn the top (U) until it isn’t. Then F2.' },
   },
   1: {
     matched: { state: daisy, moves: 'F2', hold: 'The petal’s side color already matches the center under it. Hold that side in front.' },

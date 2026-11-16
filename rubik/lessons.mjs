@@ -7,7 +7,7 @@ export const standard = { U: 'yellow', R: 'orange', F: 'green', D: 'white', L: '
 // Keep every line short: the cube animation does the explaining.
 export const lessons = [
   {
-    name: 'Daisy', how: ['Hold the cube with the <b>yellow center on top</b>. Yellow is the middle of the flower.', 'Find a white edge: a piece with white and one other color.', 'Bring it up beside yellow with <b>white facing the sky</b>. That’s one petal.', 'Make all 4 petals. If the spot is already white, turn the top first.'], goal: 'Four white edges around the yellow center.',
+    name: 'Daisy', how: ['Hold the cube with the <b>yellow center on top</b>. Yellow is the middle of the flower.', 'Find a white edge: a piece with white and one other color. No white on top yet is normal, start with any of them.', 'Bring it up beside yellow with <b>white facing the sky</b>. That’s one petal.', 'Make all 4 petals. Before lifting one up, check the top spot it goes to: if it’s already white, turn the top (U) first so you don’t knock a petal off.'], goal: 'Four white edges around the yellow center.',
     alg: null, rule: 'No formula. Bring each white edge up so white faces the sky.',
     tip: 'Spot above already white? Turn the top first so you don’t knock it off.',
     art: 'iso',
