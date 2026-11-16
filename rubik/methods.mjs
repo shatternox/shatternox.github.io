@@ -2,16 +2,16 @@
 // The beginner method comes from tree.mjs; CFOP is built from the verified
 // algorithm sets in algs.mjs. Case pictures are generated from the
 // algorithms themselves, so a picture and its moves can never disagree.
-import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161745';
-import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161745';
-import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161745';
-import { lessons, algNames } from './lessons.mjs?v=202611161745';
-import { tree, goalState } from './tree.mjs?v=202611161745';
+import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161257';
+import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161257';
+import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161257';
+import { lessons, algNames } from './lessons.mjs?v=202611161257';
+import { tree, goalState } from './tree.mjs?v=202611161257';
 import {
   OLL, PLL, F2L, CROSS, CMLL, LSE_EO, LSE_ULUR, LSE_L4E, EDGE_DL, EDGE_DB, SB_EDGE, SB_PAIR, SB_BACK, FB_PAIR, FB_BACK,
   ZZ_EO, ZZ_LINE, ZZ_EDGE, RU_PAIR, RU_BACK, PETRUS_BL, PETRUS_DF, PETRUS_FL, PETRUS_EO,
-} from './algs.mjs?v=202611161745';
-import { goodEdge } from './verify.mjs?v=202611161745';
+} from './algs.mjs?v=202611161257';
+import { goodEdge } from './verify.mjs?v=202611161257';
 
 const SIDE_WORDS = { F: 'front', R: 'right', B: 'back', L: 'left' };
 const U = k => [[], ['U'], ['U2'], ["U'"]][((k % 4) + 4) % 4];
@@ -580,9 +580,25 @@ const DEFINITIONS = {
 
 const built = {};
 export const methodList = Object.entries(DEFINITIONS).map(([id, d]) => ({ id, name: d.name, level: d.level, blurb: d.blurb }));
+// The question to ask at each level of a step's recognition tree.
+const PLACE = ['Which piece are you placing next?', 'Where is it right now?'];
+const QUESTIONS = {
+  cross: ['Where is the edge, and which way does its white sticker face?', 'Exactly where?'],
+  f2l: ['Where is the corner, and which way does its white sticker face?', 'Where is the edge?'],
+  oll: ['What shape do the yellow edges make on top?', 'How many yellow corners face up?'],
+  pll: ['Look at the two top corners of each side. Same color on both = headlights. How many sides have them?', 'Is any side’s whole top row one color (a bar)?'],
+  fb: PLACE, sb: PLACE, p222: PLACE, p223: PLACE, 'p-f2l': PLACE, 'zz-f2l': PLACE,
+  cmll: ['Which pattern do the yellow corners make?', 'Then, which one?'],
+  'lse-eo': ['How many bad edges are there?', 'Then, which one?'],
+  'lse-lr': ['Where are the left and right edges (the ones that belong at UL and UR)?', 'Then, which one?'],
+  'zz-line': ['Where is the line edge?', 'Then, which one?'],
+};
 export function getMethod(id) {
   const key = DEFINITIONS[id] ? id : 'beginner';
-  built[key] ??= { id: key, ...DEFINITIONS[key], steps: DEFINITIONS[key].steps() };
+  if (!built[key]) {
+    const steps = DEFINITIONS[key].steps().map(step => ({ ...step, questions: step.questions ?? QUESTIONS[step.id] }));
+    built[key] = { id: key, ...DEFINITIONS[key], steps };
+  }
   return built[key];
 }
 export const caseCount = method => method.steps.reduce((sum, step) => sum + step.cases.length, 0);

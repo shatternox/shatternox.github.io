@@ -1,15 +1,15 @@
-import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs?v=202611161745';
-import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs?v=202611161745';
-import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161745';
-import { examples } from './examples.mjs?v=202611161745';
-import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs?v=202611161745';
-import { createGuide } from './guide.mjs?v=202611161745';
-import { orientFromYaw, modelFace } from './moves.mjs?v=202611161745';
-import { createCoach } from './coach.mjs?v=202611161745';
-import { sfx } from './sfx.mjs?v=202611161745';
-import { music } from './music.mjs?v=202611161745';
-import { renderMap } from './map.mjs?v=202611161745';
-import { methodList, getMethod } from './methods.mjs?v=202611161745';
+import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs?v=202611161257';
+import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs?v=202611161257';
+import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161257';
+import { examples } from './examples.mjs?v=202611161257';
+import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs?v=202611161257';
+import { createGuide } from './guide.mjs?v=202611161257';
+import { orientFromYaw, modelFace } from './moves.mjs?v=202611161257';
+import { createCoach } from './coach.mjs?v=202611161257';
+import { sfx } from './sfx.mjs?v=202611161257';
+import { music } from './music.mjs?v=202611161257';
+import { renderMap, caseCard } from './map.mjs?v=202611161257';
+import { methodList, getMethod } from './methods.mjs?v=202611161257';
 
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -87,11 +87,8 @@ function setMode(next, scroll = true) {
   if (next === 'coach') coach.render();
   else if (next === 'map') {
     coach.stop();
-    renderMap($('map'), {
-      method: coach.method,
-      current: coach.position,
-      onPick: (stage, key) => { sfx.tick(); setMode('coach', false); coach.goTo(stage, key); $('app').scrollIntoView({ behavior: smooth() }); },
-    });
+    loadMapProgress();
+    showMap();
   } else {
     coach.stop();
     if (run) start(run.frames[0].state, run.frames[0].yaw, run.options);
@@ -99,6 +96,156 @@ function setMode(next, scroll = true) {
   }
   if (scroll) $('app').scrollIntoView({ behavior: smooth() });
 }
+
+// ---------- Map: solve from the map alone, with the pinned 3D cube ----------
+const mapState = { method: '', open: new Set(), done: new Set(), selected: undefined, cursor: 0, token: 0, busy: false };
+const mapKey = () => `rubik-map-${coach.method.id}`;
+function loadMapProgress() {
+  if (mapState.method === coach.method.id) return;
+  mapState.method = coach.method.id;
+  mapState.selected = undefined;
+  mapState.cursor = 0;
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(mapKey())); } catch { /* storage blocked */ }
+  mapState.done = new Set(saved?.done ?? []);
+  const here = coach.position?.stage;
+  const first = coach.method.steps.findIndex((_, i) => !mapState.done.has(i));
+  mapState.open = new Set([here ?? (first < 0 ? 0 : first)]);
+}
+function saveMapProgress() {
+  try { localStorage.setItem(mapKey(), JSON.stringify({ done: [...mapState.done] })); } catch { /* storage blocked */ }
+}
+function mapCase() {
+  const sel = mapState.selected;
+  return sel && coach.method.steps[sel.stage].cases.find(c => c.key === sel.key);
+}
+// The cube stays still until asked: show the case where it starts, or
+// where the current move begins, with that move's arrow.
+function mapFrame() {
+  const method = coach.method;
+  const c = mapCase();
+  if (!c) {
+    const first = [...mapState.open].sort((a, b) => a - b)[0] ?? 0;
+    const step = method.steps[first];
+    cube.reset();
+    cube.show({ state: step.goal, yaw: step.yaw ?? 0 }, { colors: standard, mask: step.mask(step.goal) });
+    return;
+  }
+  const step = method.steps[mapState.selected.stage];
+  const frame = c.frames[mapState.cursor];
+  cube.show(frame, { colors: standard, mask: step.mask(frame.state), move: c.moves[mapState.cursor]?.move });
+}
+function refreshCard() {
+  const c = mapCase();
+  if (!c) return;
+  const { stage, key } = mapState.selected;
+  const node = $('map').querySelector(`[data-case="${stage}:${key}"]`);
+  if (!node) return;
+  node.outerHTML = caseCard(coach.method, stage, c, { here: coach.position?.stage === stage && coach.position?.key === key, playing: true, cursor: mapState.cursor });
+}
+function showMap() {
+  renderMap($('map'), {
+    method: coach.method,
+    current: coach.position,
+    open: mapState.open,
+    done: mapState.done,
+    selected: mapState.selected,
+    cursor: mapState.cursor,
+  });
+  mapFrame();
+}
+async function mapStep(token = mapState.token) {
+  const c = mapCase();
+  if (!c || mapState.busy || mapState.cursor >= c.moves.length) return false;
+  mapState.busy = true;
+  cube.reset();
+  mapFrame();
+  await cube.animate(c.moves[mapState.cursor].move);
+  if (token !== mapState.token) return false;
+  mapState.cursor++;
+  mapState.busy = false;
+  refreshCard();
+  mapFrame();
+  if (mapState.cursor === c.moves.length) sfx.chime();
+  return true;
+}
+async function mapPlay() {
+  const c = mapCase();
+  if (!c) return;
+  const token = ++mapState.token;
+  mapState.busy = false;
+  if (mapState.cursor >= c.moves.length) mapState.cursor = 0;
+  refreshCard();
+  mapFrame();
+  while (token === mapState.token && mapState.cursor < c.moves.length) {
+    if (!(await mapStep(token))) break;
+    await new Promise(resolve => setTimeout(resolve, 180));
+  }
+}
+$('map').addEventListener('click', event => {
+  const target = event.target.closest('[data-toggle], [data-select], [data-map-act], [data-done-step], [data-coach]');
+  if (!target) return;
+  const method = coach.method;
+  if (target.dataset.toggle !== undefined) {
+    const i = Number(target.dataset.toggle);
+    sfx.tick();
+    if (mapState.open.has(i)) mapState.open.delete(i); else mapState.open.add(i);
+    if (mapState.selected?.stage === i && !mapState.open.has(i)) mapState.selected = undefined;
+    mapState.token++;
+    mapState.busy = false;
+    showMap();
+    return;
+  }
+  if (target.dataset.select) {
+    const [stage, key] = target.dataset.select.split(':');
+    sfx.tick();
+    mapState.token++;
+    mapState.busy = false;
+    mapState.selected = { stage: Number(stage), key };
+    mapState.cursor = 0;
+    showMap();
+    // On phones the pinned cube sits above: keep the card in view under it.
+    $('map').querySelector(`[data-case="${stage}:${key}"]`)?.scrollIntoView({ behavior: smooth(), block: 'nearest' });
+    return;
+  }
+  if (target.dataset.mapAct) {
+    const act = target.dataset.mapAct;
+    if (act === 'step') { mapState.token++; mapStep(); }
+    if (act === 'play') mapPlay();
+    if (act === 'back' && mapState.cursor > 0 && !mapState.busy) {
+      mapState.token++;
+      mapState.cursor--;
+      refreshCard();
+      mapFrame();
+    }
+    return;
+  }
+  if (target.dataset.doneStep !== undefined) {
+    const i = Number(target.dataset.doneStep);
+    mapState.done.add(i);
+    mapState.open.delete(i);
+    mapState.selected = undefined;
+    mapState.token++;
+    saveMapProgress();
+    if (i < method.steps.length - 1) {
+      mapState.open.add(i + 1);
+      sfx.fanfare(false);
+    } else {
+      sfx.fanfare(true);
+    }
+    showMap();
+    $('map').querySelector(`[data-toggle="${Math.min(i + 1, method.steps.length - 1)}"]`)?.scrollIntoView({ behavior: smooth(), block: 'start' });
+    return;
+  }
+  if (target.dataset.coach) {
+    const [stage, key] = target.dataset.coach.split(':');
+    sfx.tick();
+    mapState.token++;
+    setMode('coach', false);
+    coach.goTo(Number(stage), key);
+    $('app').scrollIntoView({ behavior: smooth() });
+  }
+});
 
 // ---------- Learn: steps, cases, player ----------
 let run;
@@ -609,7 +756,7 @@ function buildLogo() {
 buildLogo();
 
 setMode(location.hash === '#learn' ? 'learn' : location.hash === '#map' ? 'map' : 'coach', false);
-import('./viewer.mjs?v=202611161745').then(({ createViewer }) => {
+import('./viewer.mjs?v=202611161257').then(({ createViewer }) => {
   view = createViewer($('canvas'));
   guide.attach(view);
   $('fallback').hidden = true;

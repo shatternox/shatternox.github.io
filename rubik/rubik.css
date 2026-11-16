@@ -372,7 +372,7 @@ button.chip:hover:not(:disabled) { border-color: var(--acid); }
 
 /* Modes: map */
 body:not([data-mode="map"]) .map-only { display: none !important; }
-body[data-mode="map"] .workbench, body[data-mode="map"] .learn-only, body[data-mode="map"] .coach-only { display: none !important; }
+body[data-mode="map"] .learn-only, body[data-mode="map"] .coach-only, body[data-mode="map"] .side { display: none !important; }
 
 /* Pattern picker in the coach */
 .look { display: grid; gap: 4px; padding: 12px; border: 1px solid #2f5a40; border-radius: var(--radius); background: #0e1c15; font-size: .95rem; }
@@ -521,3 +521,77 @@ body:not([data-method="beginner"]) .beginner-only { display: none !important; }
 .map-exit .map-thumb svg { width: 88px; height: auto; }
 .map-exit b { font-size: 1rem; }
 .map-exit .exit-tag { color: var(--acid); text-transform: uppercase; letter-spacing: .06em; }
+
+
+/* ---------- Solving map, solvable on its own: pinned cube + accordion + questions ---------- */
+body[data-mode="map"] .workbench { grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); }
+body[data-mode="map"] .map-view { grid-column: 1; grid-row: 1; min-width: 0; padding: 18px; border-right: 1px solid var(--line); }
+body[data-mode="map"] .player { grid-column: 2; grid-row: 1; position: sticky; top: calc(var(--header-height) + 12px); align-self: start; border-right: 0; }
+body[data-mode="map"] .stage-view { height: clamp(300px, 46vh, 440px); }
+
+.map { display: grid; gap: 8px; }
+.map-step { display: block; padding: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--dark); }
+.map-step::after { content: none; }
+.map-step + .map-step { margin-top: 0; }
+.map-step.open { border-color: #3c5e48; }
+.map-step.now { box-shadow: inset 3px 0 0 var(--acid); }
+.map-step.now .map-num { border-color: var(--acid); background: transparent; color: var(--acid); }
+.map-step.done .map-num { border-color: var(--accent-strong); background: var(--accent-strong); color: var(--dark); }
+.step-head { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 12px 14px; border: 0; background: none; color: inherit; text-align: left; }
+.step-head:hover { background: var(--surface); }
+.step-title { display: grid; gap: 3px; min-width: 0; }
+.step-title b { font: 600 1.15rem var(--display); letter-spacing: -.02em; }
+.step-title small { color: var(--muted); font-size: .8rem; line-height: 1.35; }
+.map-step.done .step-title b { color: var(--muted); }
+.step-pics { display: flex; align-items: center; gap: 4px; }
+.step-pics i { color: var(--acid); font-style: normal; }
+.step-pics .map-thumb svg { width: 44px; height: 44px; }
+.step-pics .map-thumb .iso { width: 40px; height: 44px; }
+.step-meta { display: grid; justify-items: end; gap: 3px; color: var(--muted); font: .64rem var(--mono); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.step-meta em { padding: 1px 6px; border-radius: 3px; background: var(--acid); color: var(--dark); font-style: normal; }
+.step-meta em.ok { background: #1d4a31; color: var(--acid); }
+.chev { color: var(--acid); }
+.step-grid { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 0 24px; padding: 6px 16px 18px; border-top: 1px solid var(--line); }
+.step-grid .map-node { padding-top: 12px; }
+.look-tag { display: inline-block; margin-bottom: 6px; padding: 2px 8px; border-radius: 3px; background: #1d4a31; color: var(--acid); font: 500 .64rem var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.step-grid .map-node p { margin: 0; color: var(--ink); font-size: .92rem; line-height: 1.5; }
+.step-grid > .map-branches { padding-top: 12px; }
+
+.map-q { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 10px; color: var(--ink); font-weight: 600; font-size: .95rem; line-height: 1.4; }
+.map-q::before { content: none !important; }
+.q-badge, .a-badge { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #1d4a31; color: var(--acid); font: 600 .78rem var(--mono); }
+.a-badge { width: 20px; height: 20px; font-size: .7rem; background: var(--surface); border: 1px solid #2f5a40; }
+.map-group-head { align-items: center; }
+.map-group-head small { margin-left: 2px; }
+.map-branches.nested .map-q { font-size: .86rem; color: var(--muted); }
+
+.map-case.playing { border-color: var(--gold); box-shadow: 0 0 0 2px #f3d36b33; }
+.mc-group.now { border-color: var(--gold); border-style: solid; }
+.mc-move.now { color: var(--gold); }
+.mc-move.now .move-icon { outline: 2px solid var(--gold); outline-offset: 1px; border-radius: 4px; }
+.mc-group.now .mc-times { color: var(--dark); background: var(--gold); border-radius: 3px; }
+.mc-player { grid-column: 2; display: grid; gap: 10px; margin-top: 6px; padding: 12px; border: 1px solid #5a5226; border-radius: var(--radius); background: #15150c; }
+.mc-now { display: grid; grid-template-columns: auto auto minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; column-gap: 10px; }
+.mc-now .mc-count { grid-column: 1 / -1; margin-bottom: 4px; color: var(--gold); font: 500 .64rem var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+.mc-now .move-icon { width: 34px; height: 34px; }
+.mc-now b { font: 600 1.2rem var(--mono); }
+.mc-now > span:not(.mc-count) { color: var(--ink); font-size: .9rem; font-weight: 600; line-height: 1.35; }
+.mc-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mc-buttons .button { min-height: 40px; }
+.mc-buttons .link { margin-left: auto; }
+
+@media (max-width: 960px) {
+  body[data-mode="map"] .workbench { display: flex; flex-direction: column; }
+  body[data-mode="map"] .player { order: -1; align-self: stretch; position: sticky; top: var(--header-height); z-index: 5; padding: 6px; background: var(--dark); border-bottom: 1px solid var(--line); }
+  body[data-mode="map"] .stage-view { height: 240px; }
+  body[data-mode="map"] .view-top .tool { display: none; }
+  body[data-mode="map"] .map-view { border-right: 0; padding: 12px; }
+  .step-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 6px 10px 14px; }
+}
+@media (max-width: 640px) {
+  .step-head { grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; padding: 10px; }
+  .step-pics { display: none; }
+  .mc-buttons .link { margin-left: 0; }
+}
+.step-grid .map-node { display: block; position: sticky; top: calc(var(--header-height) + 12px); align-self: start; }
+@media (max-width: 960px) { .step-grid .map-node { position: static; } }
