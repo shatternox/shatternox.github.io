@@ -4,7 +4,7 @@ import { palette } from './lessons.mjs';
 
 const vector = array => new THREE.Vector3(...array);
 const forward = new THREE.Vector3(0, 0, 1);
-const defaultView = new THREE.Vector3(5.7, 4.6, 8.3);
+const defaultView = new THREE.Vector3(2.3, 4.4, 9.6);
 
 function roundedBox(size, radius) {
   const geometry = new THREE.BoxGeometry(size, size, size, 8, 8, 8);
@@ -111,11 +111,57 @@ export function createViewer(container) {
   let pose = defaultView.clone();
   let up = new THREE.Vector3(0, 1, 0);
   let pointer;
+  let motion;
   function draw() {
     camera.position.copy(pose);
     camera.up.copy(up);
     camera.lookAt(0, 0, 0);
+    camera.updateMatrixWorld();
     renderer.render(scene, camera);
+    container.dispatchEvent(new CustomEvent('cube-draw'));
+  }
+  // Arrow that wraps around the turning layer, hugging the faces you can see.
+  const arrowMaterial = new THREE.MeshBasicMaterial({ color: 0xfff09a });
+  const arrowEdge = new THREE.MeshBasicMaterial({ color: 0x1a2a20 });
+  let arrow;
+  function buildArrow(move) {
+    const whole = move[0] === 'y';
+    const { axis, side, quarters } = turnSpec(whole ? 'U' + move.slice(1) : move);
+    const axisVector = new THREE.Vector3().setComponent(axis, 1);
+    const sign = Math.sign(-side * quarters);
+    const turn = new THREE.Vector3(0, 1, 0);
+    const seen = [[0, 1, 0], [0, 0, 1], [1, 0, 0]]
+      .map(w => new THREE.Vector3(...w).applyAxisAngle(turn, yaw * Math.PI / 2))
+      .filter(v => Math.abs(v.dot(axisVector)) < .5);
+    const center = seen[0].clone().add(seen[1]).normalize();
+    const offset = whole ? 0 : side;
+    const sweep = (Math.abs(quarters) === 2 ? 150 : 96) * Math.PI / 180;
+    const base = whole ? 1.95 : 1.6;
+    const points = [];
+    for (let i = 0; i <= 40; i++) {
+      const angle = sign * (-sweep / 2 + sweep * i / 40);
+      const direction = center.clone().applyAxisAngle(axisVector, angle);
+      // Find the in-plane angle from the first visible face to round the square outline.
+      const a = direction.dot(seen[0]);
+      const b = direction.dot(seen[1]);
+      const radius = base * (Math.abs(a) ** 12 + Math.abs(b) ** 12) ** (-1 / 12);
+      points.push(direction.multiplyScalar(radius).add(axisVector.clone().multiplyScalar(offset)));
+    }
+    const curve = new THREE.CatmullRomCurve3(points);
+    const group = new THREE.Group();
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 60, .075, 8), arrowMaterial));
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 60, .11, 8), arrowEdge));
+    const heads = Math.abs(quarters) === 2 ? [1, .5] : [1];
+    for (const at of heads) {
+      const head = new THREE.Mesh(new THREE.ConeGeometry(.24, .5, 18), arrowMaterial);
+      const tangent = curve.getTangentAt(at);
+      head.position.copy(curve.getPointAt(at)).add(tangent.clone().multiplyScalar(.12));
+      head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+      group.add(head);
+    }
+    group.children[1].renderOrder = -1;
+    group.children[1].material.side = THREE.BackSide;
+    return group;
   }
   function resetModels() {
     model.rotation.set(0, -yaw * Math.PI / 2, 0);
@@ -135,6 +181,8 @@ export function createViewer(container) {
     yaw = turn;
     resetModels();
     const spec = preview && preview[0] !== 'y' && turnSpec(preview);
+    arrow = preview ? buildArrow(preview) : undefined;
+    if (arrow) model.add(arrow);
     cubies.forEach(({ position, plastic }) => {
       plastic.material = focus && focus.every((value, axis) => value === position[axis]) ? focusBody
         : spec && position[spec.axis] === spec.side ? activeBody : body;
@@ -147,7 +195,7 @@ export function createViewer(container) {
     const width = container.clientWidth || 1;
     const height = container.clientHeight || 1;
     const ratio = width / height;
-    const vertical = Math.max(2.52, 2.32 / ratio);
+    const vertical = Math.max(3.05, 2.95 / ratio);
     camera.left = -vertical * ratio;
     camera.right = vertical * ratio;
     camera.top = vertical;
@@ -190,10 +238,21 @@ export function createViewer(container) {
   return {
     view,
     setState,
+    get motion() { return motion; },
+    get turned() { return !pose.equals(defaultView); },
+    // World point to pixel position inside the container.
+    project(x, y, z) {
+      const point = new THREE.Vector3(x, y, z).project(camera);
+      return { x: (point.x + 1) / 2 * container.clientWidth, y: (1 - point.y) / 2 * container.clientHeight };
+    },
+    facing(x, y, z) {
+      return new THREE.Vector3(x, y, z).dot(camera.position.clone().normalize());
+    },
     animate(move, duration) {
       if (!duration) return Promise.resolve();
       const whole = move[0] === 'y';
       const { axis, side, quarters } = turnSpec(whole ? 'U' + move.slice(1) : move);
+      if (arrow) model.remove(arrow);
       const pivot = new THREE.Group();
       model.add(pivot);
       for (const cubie of cubies) {
@@ -210,9 +269,11 @@ export function createViewer(container) {
           const time = Math.min(1, (now - started) / duration);
           const ease = time * time * (3 - 2 * time);
           pivot.rotation[axes[axis]] = -side * quarters * Math.PI / 2 * ease;
+          motion = ease;
           draw();
           if (time < 1) animation = requestAnimationFrame(frame);
           else {
+            motion = undefined;
             settle = undefined;
             resolve();
           }

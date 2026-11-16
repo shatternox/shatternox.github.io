@@ -47,20 +47,22 @@ export function moveIcon(move) {
   return `<svg class="move-icon move-${face}" viewBox="0 0 48 48" aria-hidden="true"><g class="grid">${cells.join('')}</g><g class="arrow">${arrow}</g>${double ? '<text x="41" y="45" class="times">2</text>' : ''}</svg>`;
 }
 
-const sideNames = { U: 'top', D: 'bottom', F: 'front', B: 'back', R: 'right', L: 'left' };
+// Plain-language instruction, including which hand does it.
 export function describeMove(move) {
-  if (move[0] === 'y') {
-    const text = move.endsWith('2') ? 'Spin the whole cube half a turn' : move.endsWith("'") ? 'Spin the whole cube so the left side faces you' : 'Spin the whole cube so the right side faces you';
-    return text;
-  }
-  const name = sideNames[move[0]];
-  if (move.endsWith('2')) return `Turn the ${name} twice`;
-  const how = {
-    U: ['to the left', 'to the right'], D: ['to the right', 'to the left'],
-    R: ['up', 'down'], L: ['down', 'up'],
-    F: ['clockwise', 'counterclockwise'], B: ['away from you, counterclockwise', 'away from you, clockwise'],
-  }[move[0]][move.endsWith("'") ? 1 : 0];
-  return `Turn the ${name} ${how}`;
+  const twice = move.endsWith('2');
+  const prime = move.endsWith("'");
+  const text = {
+    R: ['Right hand: turn the right side up', 'Right hand: turn the right side down'],
+    L: ['Left hand: turn the left side down', 'Left hand: turn the left side up'],
+    U: ['Right finger: push the top to the left', 'Left finger: push the top to the right'],
+    D: ['Left hand: turn the bottom to the right', 'Right hand: turn the bottom to the left'],
+    F: ['Turn the front clockwise, like a wheel to the right', 'Turn the front counterclockwise, like a wheel to the left'],
+    B: ['Reach behind: turn the back so its top goes left', 'Reach behind: turn the back so its top goes right'],
+    y: ['Spin the whole cube: the right side comes to the front', 'Spin the whole cube: the left side comes to the front'],
+  }[move[0]][prime ? 1 : 0];
+  if (!twice) return text;
+  if (move[0] === 'y') return 'Spin the whole cube half a turn: the back comes to the front';
+  return `${text.replace(/, like a wheel to the right/, '')}, twice`;
 }
 
 // ---------- Case thumbnails ----------

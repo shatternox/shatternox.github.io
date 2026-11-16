@@ -1,8 +1,9 @@
-import { faces, solved, tiles, inspectCube, showMove, inverse, applyMoves } from './cube.mjs';
+import { faces, solved, tiles, inspectCube, showMove, inverse, applyMoves, tokens } from './cube.mjs';
 import { planNext, play, toAbsolute, relevance, pieceLocation, ALGS, currentStage } from './method.mjs';
 import { palette, standard, lessons, algNames } from './lessons.mjs';
 import { examples } from './examples.mjs';
 import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs';
+import { createGuide } from './guide.mjs';
 
 const $ = id => document.getElementById(id);
 const capital = word => word[0].toUpperCase() + word.slice(1);
@@ -17,6 +18,7 @@ let playbackId = 0;
 let busy = false;
 let showAll = false;
 let ownSolve;
+const guide = createGuide($('canvas'));
 
 function el(tag, className = '', html = '') {
   const node = document.createElement(tag);
@@ -34,10 +36,25 @@ const swatch = color => `<i class="swatch" style="--color:${palette[color]}"></i
 const chip = move => `${moveIcon(move)}<span>${showMove(move)}</span>`;
 
 // ---------- Running a plan ----------
-function start(state, yaw = 0, { mode = 'lesson', colors = standard, demo } = {}) {
+// Every piece of the current step, back to back.
+function wholePlan(state, yaw) {
+  const stage = currentStage(state);
+  const plan = { stage, key: '', whole: true, blocks: [] };
+  let at = { state, yaw };
+  for (let piece = 1; piece <= 12; piece++) {
+    const next = planNext(at.state, at.yaw);
+    if (next.stage !== stage) break;
+    plan.key ||= next.key;
+    for (const block of next.blocks) plan.blocks.push({ ...block, label: `#${piece} ${block.label}`, target: next.target });
+    at = next.end;
+  }
+  return plan;
+}
+
+function start(state, yaw = 0, { mode = 'lesson', colors = standard, demo, whole } = {}) {
   const plan = demo
     ? { stage: -2, key: '', blocks: [{ kind: 'move', label: 'Try it', moves: demo }] }
-    : planNext(state, yaw);
+    : whole ? wholePlan(state, yaw) : planNext(state, yaw);
   const moves = plan.blocks.flatMap((block, index) => block.moves.map(move => ({ move, block: index })));
   const frames = [{ state, yaw }];
   for (const { move } of moves) {
@@ -59,6 +76,27 @@ let shownStage = 0;
 function startCase(stage, key) {
   const [state, yaw] = examples[stage][key];
   start(state, yaw, { mode: 'lesson' });
+}
+// A starting cube for each step, taken from one fixed scramble.
+let stageStarts;
+function stageStart(stage) {
+  if (!stageStarts) {
+    stageStarts = [];
+    let at = { state: applyMoves(solved, tokens("R2 D' B U2 L F' D2 R' U B2 L2 F R D' L' U2 B' R2 F2 D L")), yaw: 0 };
+    for (let guard = 0; guard < 60; guard++) {
+      const plan = planNext(at.state, at.yaw);
+      if (plan.stage < 0) break;
+      stageStarts[plan.stage] ??= at;
+      at = plan.end;
+    }
+  }
+  return stageStarts[stage] ?? { state: examples[stage][Object.keys(examples[stage])[0]][0], yaw: 0 };
+}
+function watchWhole(stage) {
+  const { state, yaw } = stageStart(stage);
+  start(state, yaw, { mode: 'lesson', whole: true });
+  $('player').scrollIntoView({ behavior: smooth(), block: 'nearest' });
+  playback();
 }
 function startStage(stage) {
   startCase(stage, Object.keys(lessons[stage].cases)[0]);
@@ -114,6 +152,27 @@ function caseArt(stage, key) {
   return html;
 }
 
+// Short written formula: repeated algorithms collapse to (…)×n.
+function compactFormula(blocks) {
+  const parts = [];
+  for (const block of blocks) {
+    const text = block.moves.map(showMove).join(' ');
+    const last = parts.at(-1);
+    if (last && last.text === text && block.kind === 'alg') last.count++;
+    else parts.push({ text, count: 1, group: block.kind === 'alg' && block.moves.length > 1 });
+  }
+  return parts.map(({ text, count, group }) => count > 1 ? `(${text})×${count}` : group && parts.length > 1 ? `(${text})` : text).join('  ');
+}
+const formulaCache = new Map();
+function caseFormula(stage, key) {
+  const id = `${stage}:${key}`;
+  if (!formulaCache.has(id)) {
+    const [state, yaw] = examples[stage][key];
+    formulaCache.set(id, compactFormula(planNext(state, yaw).blocks));
+  }
+  return formulaCache.get(id);
+}
+
 function formula(key) {
   return `<div class="formula-card"><div class="formula-name">${algNames[key]}</div><div class="chips">${ALGS[key].map(move => `<span class="chip">${chip(move)}</span>`).join('')}</div></div>`;
 }
@@ -126,14 +185,16 @@ function renderPanel() {
     <h2 id="panel-title">${lesson.name}</h2>
     <p class="goal">${lesson.goal}</p>
     ${algs.length ? `<div class="learn"><div class="label">Memorize</div>${algs.map(formula).join('')}${lesson.repeat ? `<p class="repeat">↻ ${lesson.repeat}</p>` : ''}</div>` : ''}
-    <p class="rule">${lesson.rule}</p>
+    <div class="label how-label">How to do it</div>
+    <ol class="how">${lesson.how.map(line => `<li><span>${line}</span></li>`).join('')}</ol>
+    <button class="secondary watch" id="watch-whole">▶ Watch the whole step</button>
     <div class="label cases-label">Which one looks like yours?</div>
     <div class="cases" id="cases"></div>
     <p class="tip"><b>Tip</b> ${lesson.tip}</p>`;
   const tracking = run.mode === 'practice' || run.mode === 'mine';
   $('cases').replaceChildren(...Object.entries(lesson.cases).map(([key, [label]]) => {
-    const card = button(`<span class="art">${caseArt(shownStage, key)}</span><span class="case-name">${label}</span>`, 'case');
-    const active = run.stage === shownStage && run.key === key;
+    const card = button(`<span class="art">${caseArt(shownStage, key)}</span><span class="case-name">${label}</span><code class="case-formula">${caseFormula(shownStage, key)}</code>`, 'case');
+    const active = !run.whole && run.stage === shownStage && run.key === key;
     card.setAttribute('aria-pressed', String(active));
     if (active && tracking) card.classList.add('yours');
     card.addEventListener('click', () => {
@@ -142,6 +203,7 @@ function renderPanel() {
     });
     return card;
   }));
+  $('watch-whole').addEventListener('click', () => watchWhole(shownStage));
 }
 
 // ---------- Player ----------
@@ -151,9 +213,12 @@ function updateModel() {
   const { state, yaw } = frameAt();
   const stage = showAll || run.stage < 0 ? -1 : run.stage;
   const show = relevance(stage, state);
-  const focus = run.stage >= 0 && run.stage < 4 ? pieceLocation(state, run.target) : undefined;
+  const entry = run.moves[Math.min(cursor, run.moves.length - 1)];
+  const target = entry && run.blocks[entry.block].target || run.target;
+  const focus = run.stage >= 0 && run.stage < 4 ? pieceLocation(state, target) : undefined;
   const move = run.moves[cursor]?.move;
-  const preview = move && move[0] !== 'y' ? toAbsolute(move, yaw) : undefined;
+  const preview = move && (move[0] === 'y' ? move : toAbsolute(move, yaw));
+  if (!busy) guide.setMove(move);
   if (view) {
     if (!busy) view.setState(state, { colors: run.colors, show, focus, preview, turn: yaw });
   } else {
@@ -172,7 +237,9 @@ function renderPlayer() {
   const caseInfo = lesson?.cases[key];
   $('case-line').innerHTML = mode === 'demo' ? '<b>Practice a turn</b>'
     : stage === -1 ? '<b>Solved!</b> Every face is one color.'
-      : `<span class="tag">${mode === 'lesson' ? 'Example' : mode === 'mine' ? 'Your cube' : 'Scramble'}</span> <b>${lesson.name}: ${caseInfo[0]}.</b> ${caseInfo[1]}`;
+      : run.whole ? `<span class="tag">Whole step</span> <b>${lesson.name}</b>, every piece from start to finish.`
+        : `<span class="tag">${mode === 'lesson' ? 'Example' : mode === 'mine' ? 'Your cube' : 'Scramble'}</span> <b>${lesson.name}: ${caseInfo[0]}.</b> ${caseInfo[1]}`;
+  $('full-formula').innerHTML = moves.length ? `<span class="label">Full formula</span> <code>${compactFormula(blocks)}</code>` : '';
   if (current) {
     $('now-icon').innerHTML = moveIcon(current.move);
     $('now-move').textContent = showMove(current.move);
@@ -265,8 +332,10 @@ async function step(direction) {
   const move = forward ? entry.move : inverse([entry.move])[0];
   const absolute = move[0] === 'y' ? move : toAbsolute(move, yaw);
   const currentSession = session;
+  if (view?.turned) view.view();
   busy = true;
   renderPlayer();
+  guide.setMove(move);
   await view?.animate(absolute, reducedMotion.matches ? 0 : Number($('speed').value) * (move[0] === 'y' ? 1.3 : 1));
   if (currentSession !== session) return;
   cursor += direction;
@@ -407,6 +476,7 @@ $('open-editor').addEventListener('click', () => { renderEditor(); $('editor').s
 $('resume').addEventListener('click', () => start(ownSolve.state, ownSolve.yaw, { mode: ownSolve.mode, colors: ownSolve.colors }));
 $('reset-view').addEventListener('click', () => view?.view());
 $('show-all').addEventListener('change', event => { showAll = event.target.checked; updateModel(); });
+$('show-hands').addEventListener('change', event => guide.setHands(event.target.checked));
 $('prev').addEventListener('click', () => step(-1));
 $('next').addEventListener('click', () => step(1));
 $('play').addEventListener('click', playback);
@@ -425,9 +495,19 @@ document.addEventListener('keydown', event => {
   if (event.key === ' ' && !event.target.closest('button')) { event.preventDefault(); playback(); }
 });
 
+// Hero logo: a CSS 3D cube whose top and bottom layers twist.
+function buildLogo() {
+  const sides = { front: 'green', right: 'orange', back: 'blue', left: 'red' };
+  const face = (name, color, count) => `<div class="lf lf-${name}">${`<i style="--c:${palette[color]}"></i>`.repeat(count)}</div>`;
+  const slab = (row, extra) => `<div class="slab slab-${row}">${Object.entries(sides).map(([name, color]) => face(name, color, 3)).join('')}${extra}</div>`;
+  const inner = '<div class="lf lf-cap lf-in-top"></div><div class="lf lf-cap lf-in-bottom"></div>';
+  $('logo').innerHTML = `<div class="logo-spin">${slab('top', face('top', 'yellow', 9).replace('lf-top', 'lf-cap lf-top') + '<div class="lf lf-cap lf-in-bottom"></div>')}${slab('mid', inner)}${slab('bottom', face('bottom', 'white', 9).replace('lf-bottom', 'lf-cap lf-bottom') + '<div class="lf lf-cap lf-in-top"></div>')}</div>`;
+}
+buildLogo();
 startStage(0);
 import('./viewer.mjs').then(({ createViewer }) => {
   view = createViewer($('canvas'));
+  guide.attach(view);
   $('fallback').hidden = true;
   updateModel();
 }).catch(() => {

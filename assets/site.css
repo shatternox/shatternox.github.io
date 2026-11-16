@@ -44,7 +44,8 @@ nav { display: flex; align-items: center; justify-content: space-between; gap: 2
 nav ul { display: flex; align-items: center; gap: clamp(14px, 1.65vw, 24px); margin: 0; padding: 0; list-style: none; font-size: .78rem; color: var(--muted); }
 nav li a { display: inline-flex; align-items: center; min-height: 44px; border-bottom: 1px solid transparent; transition: color .2s, border-color .2s; }
 nav li a:hover, nav li a[aria-current='location'] { color: var(--acid); border-bottom-color: var(--acid); }
-nav li a.rubik-nav { color: var(--acid); white-space: nowrap; }
+nav li a.rubik-nav { color: var(--acid); white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.rubik-icon { width: 16px; height: 16px; flex: none; }
 .nav-button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 1px solid var(--line); border-radius: 5px; white-space: nowrap; font-size: .8rem; font-weight: 600; transition: background .2s, color .2s, border-color .2s; }
 .nav-button:hover { background: var(--acid); border-color: var(--acid); color: var(--dark); }
 .menu { display: none; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--ink); font-size: 1.4rem; cursor: pointer; }

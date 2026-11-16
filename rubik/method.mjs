@@ -6,6 +6,7 @@ import { faces, pieces, tiles, applyMoves, permutation, inspectCube, home, token
 
 const SIDES = 'FRBL';
 export const ALGS = {
+  down: tokens('F2'),
   trigger: tokens("R U R' U'"),
   right: tokens("U R U' R' U' F' U F"),
   left: tokens("U' L' U L U F U' F'"),

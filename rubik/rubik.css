@@ -220,3 +220,65 @@ button.chip:hover:not(:disabled) { border-color: #52745b; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+/* Guide overlay: face labels + ghost hands */
+.guide { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.face-label {
+  position: absolute; left: 0; top: 0; white-space: nowrap; font: 600 .66rem var(--mono); letter-spacing: .08em;
+  color: #cfe0d4; background: #0e1411d9; border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px;
+}
+.face-label b { color: var(--gold); margin-left: 2px; }
+.face-F { font-size: .78rem; color: var(--ink); border-color: #52745b; }
+.face-label.turning { border-color: #fff09a; color: #fff09a; box-shadow: 0 0 0 2px #fff09a33; }
+.hand { position: absolute; left: 0; top: 0; overflow: visible; }
+.hand path { fill: #ffffff0d; stroke: #e8f2ea; stroke-opacity: .55; stroke-width: 2.2; stroke-dasharray: 2 5; stroke-linecap: round; stroke-linejoin: round; }
+.hand .knuckle { fill: none; stroke-opacity: .3; }
+.hand.active path { fill: #fff09a1f; stroke: #fff09a; stroke-opacity: .95; stroke-width: 2.6; }
+.toggles { display: inline-flex; gap: 12px; }
+
+/* How-to, formulas */
+.how-label { margin-top: 16px; }
+.how { margin: 6px 0 0; padding-left: 0; list-style: none; counter-reset: how; display: grid; gap: 7px; }
+.how li { counter-increment: how; display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: start; font-size: .92rem; line-height: 1.45; }
+.how li::before { content: counter(how); display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #2b4a35; color: var(--accent); font: 600 .75rem var(--mono); }
+.how b { color: var(--ink); }
+.watch { margin-top: 12px; width: 100%; }
+.case-formula { font: 500 .66rem/1.35 var(--mono); color: var(--gold); word-break: break-word; }
+.full-formula { margin: 12px 4px 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.full-formula code { font: 600 .92rem/1.5 var(--mono); color: var(--gold); word-break: break-word; }
+
+/* Hero logo: CSS 3D cube */
+.intro { align-items: center; justify-content: flex-start; }
+.intro-actions { margin-left: auto; }
+.logo-cube { --s: 34px; width: calc(var(--s) * 3); height: calc(var(--s) * 3); perspective: 900px; flex: none; margin: 10px 22px 10px 14px; }
+.logo-spin { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; animation: logo-spin 16s linear infinite; }
+.slab { position: absolute; left: 0; width: calc(var(--s) * 3); height: var(--s); transform-style: preserve-3d; }
+.slab-top { top: 0; animation: twist-top 6s ease-in-out infinite; }
+.slab-mid { top: var(--s); }
+.slab-bottom { top: calc(var(--s) * 2); animation: twist-bottom 6s ease-in-out infinite; }
+.lf { position: absolute; left: 0; top: 0; width: calc(var(--s) * 3); height: var(--s); display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; padding: 3px; background: #0b0f0d; backface-visibility: hidden; }
+.lf i { border-radius: 4px; background: var(--c); box-shadow: inset 0 -3px 0 #0000002e, inset 0 2px 0 #ffffff3d; }
+.lf-front { transform: translateZ(calc(var(--s) * 1.5)); }
+.lf-right { transform: rotateY(90deg) translateZ(calc(var(--s) * 1.5)); }
+.lf-back { transform: rotateY(180deg) translateZ(calc(var(--s) * 1.5)); }
+.lf-left { transform: rotateY(-90deg) translateZ(calc(var(--s) * 1.5)); }
+.lf-cap { height: calc(var(--s) * 3); top: calc(var(--s) * -1); grid-template-rows: repeat(3, 1fr); }
+.lf-top, .lf-in-top { transform: rotateX(90deg) translateZ(calc(var(--s) * .5)); }
+.lf-bottom, .lf-in-bottom { transform: rotateX(-90deg) translateZ(calc(var(--s) * .5)); }
+.lf-in-top, .lf-in-bottom { backface-visibility: visible; }
+@keyframes logo-spin { from { transform: rotateX(-26deg) rotateY(-40deg); } to { transform: rotateX(-26deg) rotateY(320deg); } }
+@keyframes twist-top { 0%, 18% { transform: rotateY(0); } 36%, 64% { transform: rotateY(-90deg); } 82%, 100% { transform: rotateY(0); } }
+@keyframes twist-bottom { 0%, 30% { transform: rotateY(0); } 46%, 56% { transform: rotateY(90deg); } 72%, 100% { transform: rotateY(0); } }
+@media (max-width: 640px) {
+  .logo-cube { --s: 26px; margin: 8px 18px 8px 8px; }
+  .toggles { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-spin { animation: none; transform: rotateX(-26deg) rotateY(-40deg); }
+  .slab-top, .slab-bottom { animation: none; }
+}
+@media (max-width: 640px) {
+  .stage-view { height: 340px; }
+  #drag-hint { display: none; }
+  .view-bottom { justify-content: flex-end; }
+}
