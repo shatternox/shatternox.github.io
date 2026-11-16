@@ -1,317 +1,277 @@
-import {
-  faces, solved, tiles, faceNames, inspectCube, caseKey, currentStage,
-  planStage, applyMoves, showMove, inverse, home, focusPiece, generators,
-} from './cube.mjs';
-import { palette, standard, lessons } from './lessons.mjs';
+import { faces, solved, tiles, inspectCube, showMove, inverse, applyMoves } from './cube.mjs';
+import { planNext, play, toAbsolute, relevance, pieceLocation, ALGS, currentStage } from './method.mjs';
+import { palette, standard, lessons, algNames } from './lessons.mjs';
 import { examples } from './examples.mjs';
+import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs';
 
 const $ = id => document.getElementById(id);
-const faceOrder = [...'FRBLUD'];
-const firstExample = examples[0].middle;
 const capital = word => word[0].toUpperCase() + word.slice(1);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const formatPosition = position => position.map(value => value + 1).join('');
+const smooth = () => (reducedMotion.matches ? 'instant' : 'smooth');
 let view;
-let cameraFace = '';
 let run;
 let cursor = 0;
 let session = 0;
 let playing = false;
 let playbackId = 0;
 let busy = false;
-let animatedMove;
-let editorFace = 'F';
-let selectedColor = 'yellow';
-let editorStickers = emptyEditor();
+let showAll = false;
+let ownSolve;
 
-function button(label, className = '', title) {
-  const result = document.createElement('button');
-  result.type = 'button';
-  result.className = className;
-  result.textContent = label;
-  if (title) result.title = title;
-  return result;
+function el(tag, className = '', html = '') {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (html) node.innerHTML = html;
+  return node;
 }
-
-function swatch(color) {
-  return `<i class="swatch" style="--color:${palette[color]}"></i>`;
+function button(html, className = '', title) {
+  const node = el('button', className, html);
+  node.type = 'button';
+  if (title) node.title = title;
+  return node;
 }
+const swatch = color => `<i class="swatch" style="--color:${palette[color]}"></i>`;
+const chip = move => `${moveIcon(move)}<span>${showMove(move)}</span>`;
 
-function samePosition(a, b) {
-  return a && b && formatPosition(a) === formatPosition(b);
-}
-
-function sticker(index, state, colors, focus, clear = false) {
-  const color = clear ? '#2a3833' : palette[colors[state[index]]];
-  const marked = samePosition(focus, tiles[index].position);
-  return `<span class="tile${marked ? ' marked' : ''}" style="--tile:${color}"></span>`;
-}
-
-function faceGrid(face, state, colors, focus, label = true) {
-  const start = faces.indexOf(face) * 9;
-  const description = [...state.slice(start, start + 9)].map(value => colors[value]).join(', ');
-  const grid = Array.from({ length: 9 }, (_, index) => sticker(start + index, state, colors, focus)).join('');
-  return `<span class="net-face net-${face}">${label ? `<span class="net-label">${face}</span>` : ''}<span class="net-grid" role="img" aria-label="${faceNames[face]}: ${description}">${grid}</span></span>`;
-}
-
-function net(state, colors, focus) {
-  return `<div class="cube-net">${faceOrder.map(face => faceGrid(face, state, colors, focus)).join('')}</div>`;
-}
-
-function currentFocus(state) {
-  if (!run.target) return undefined;
-  return tiles[inspectCube(state)[run.target]].position;
-}
-
-function setCamera(face = '') {
-  cameraFace = face;
-  view?.view(face);
-  updateCameraButtons();
-  updateModel();
-}
-
-function updateCameraButtons() {
-  for (const element of $('cameras').children) element.setAttribute('aria-pressed', String(element.textContent === cameraFace));
-  updateDirectionIndicator();
-}
-
-function updateDirectionIndicator() {
-  const move = animatedMove ?? run?.moves[cursor];
-  const indicator = $('direction-indicator');
-  indicator.hidden = !cameraFace || move?.[0] !== cameraFace;
-  if (!indicator.hidden) {
-    indicator.textContent = move.endsWith('2') ? '↻ 180°' : move.endsWith("'") ? '↺ 90°' : '↻ 90°';
+// ---------- Running a plan ----------
+function start(state, yaw = 0, { mode = 'lesson', colors = standard, demo } = {}) {
+  const plan = demo
+    ? { stage: -2, key: '', blocks: [{ kind: 'move', label: 'Try it', moves: demo }] }
+    : planNext(state, yaw);
+  const moves = plan.blocks.flatMap((block, index) => block.moves.map(move => ({ move, block: index })));
+  const frames = [{ state, yaw }];
+  for (const { move } of moves) {
+    const last = frames.at(-1);
+    frames.push(play(last.state, last.yaw, [move]));
   }
-}
-
-function updateModel() {
-  const state = run.frames[cursor];
-  const focus = currentFocus(state);
-  if (view) {
-    if (!busy) view.setState(state, run.colors, focus, run.moves[cursor]);
-  } else {
-    $('fallback').innerHTML = cameraFace ? faceGrid(cameraFace, state, run.colors, focus) : net(state, run.colors, focus);
-  }
-}
-
-function start(state, { mode = 'example', colors = standard, demoTurns } = {}) {
-  const positions = inspectCube(state);
-  const stage = demoTurns ? -1 : currentStage(positions);
-  const plan = demoTurns ? { blocks: [demoTurns] } : stage < 0 ? { blocks: [] } : planStage(stage, positions);
-  const moves = plan.blocks.flat();
-  const frames = [state];
-  for (const move of moves) frames.push(applyMoves(frames.at(-1), [move]));
   session++;
   cursor = 0;
   playing = false;
   busy = false;
-  animatedMove = undefined;
-  run = {
-    mode, colors, stage, positions, ...plan, moves, frames,
-    key: stage >= 0 ? caseKey(stage, positions) : '',
-  };
-  cameraFace = '';
+  run = { mode, colors, ...plan, moves, frames };
+  if (mode === 'practice' || mode === 'mine') ownSolve = { state, yaw, colors, mode };
+  if (plan.stage >= 0 || plan.stage === -1) shownStage = plan.stage < 0 ? lessons.length - 1 : plan.stage;
   view?.view();
-  updateCameraButtons();
-  renderRoadmap();
-  renderCases();
+  render();
+}
+let shownStage = 0;
+
+function startCase(stage, key) {
+  const [state, yaw] = examples[stage][key];
+  start(state, yaw, { mode: 'lesson' });
+}
+function startStage(stage) {
+  startCase(stage, Object.keys(lessons[stage].cases)[0]);
+}
+
+function render() {
+  renderSteps();
+  renderPanel();
   renderPlayer();
 }
 
-function renderRoadmap() {
-  const stage = run.stage;
-  $('stages').replaceChildren(...lessons.map(({ name }, index) => {
-    const li = document.createElement('li');
-    const marker = run.mode !== 'notation' && (stage < 0 || index < stage) ? '✓' : String(index + 1).padStart(2, '0');
-    const entry = button('', 'stage-button');
-    entry.innerHTML = `<span class="stage-number">${marker}</span><span>${name}</span>`;
-    if (stage === index) entry.setAttribute('aria-current', 'step');
-    if (run.mode === 'exact') {
-      const label = document.createElement('div');
-      label.className = 'stage-button';
-      label.innerHTML = entry.innerHTML;
-      if (stage === index) label.setAttribute('aria-current', 'step');
-      li.append(label);
-    } else {
-      entry.addEventListener('click', () => start(Object.values(examples[index])[0]));
-      li.append(entry);
-    }
-    return li;
+// ---------- Step bar ----------
+function renderSteps() {
+  const tracking = run.mode === 'practice' || run.mode === 'mine';
+  $('steps').replaceChildren(...lessons.map(({ name }, index) => {
+    const done = tracking && (run.stage === -1 || index < run.stage);
+    const item = button(`<b>${done ? '✓' : index + 1}</b><span>${name}</span>`, 'step-pill');
+    if (index === shownStage) item.setAttribute('aria-current', 'step');
+    if (done) item.classList.add('done');
+    item.addEventListener('click', () => {
+      startStage(index);
+      $('player').scrollIntoView({ behavior: smooth(), block: 'nearest' });
+    });
+    return item;
   }));
-  const list = $('stages');
-  const active = list.querySelector('[aria-current="step"]');
-  if (active && list.scrollWidth > list.clientWidth) {
-    const bounds = list.getBoundingClientRect();
-    const step = active.getBoundingClientRect();
-    if (step.left < bounds.left || step.right > bounds.right) list.scrollLeft += step.left - bounds.left;
-  }
+  const current = $('steps').querySelector('[aria-current]');
+  if (current) $('steps').scrollTo({ left: current.offsetLeft - 16, behavior: smooth() });
+  $('resume').hidden = !ownSolve || tracking;
 }
 
-function caseArt(stage, state, positions) {
-  if (stage < 3) {
-    const focus = positions[focusPiece(stage, positions)];
-    const { face, position } = tiles[focus];
-    return faceGrid(face, state, standard, position);
+// ---------- Step panel ----------
+const artCache = new Map();
+function caseArt(stage, key) {
+  const id = `${stage}:${key}`;
+  if (artCache.has(id)) return artCache.get(id);
+  const [state, yaw] = examples[stage][key];
+  const plan = planNext(state, yaw);
+  let html;
+  if (lessons[stage].art === 'top') {
+    // Show the case the way you hold it, right before the formula.
+    let frame = { state, yaw };
+    for (const block of plan.blocks) {
+      if (block.kind === 'alg') break;
+      frame = play(frame.state, frame.yaw, block.moves);
+    }
+    html = topView(frame.state, { palette, colors: standard, show: relevance(stage, frame.state), yaw: frame.yaw });
+  } else {
+    const where = pieceLocation(state, plan.target);
+    const focus = where ? tiles.map((tile, index) => tile.position.join() === where.join() ? index : -1).filter(index => index >= 0) : [];
+    html = isoCube(state, { palette, colors: standard, show: relevance(stage, state), yaw, focus });
   }
-  const top = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(index => {
-    const highlight = stage === 3 ? index % 2 === 1 || index === 4 : true;
-    return sticker(index, state, standard, undefined, !highlight || (stage < 5 && state[index] !== 'U'));
-  }).join('');
-  const strip = (face, reverse = false) => {
-    const start = faces.indexOf(face) * 9;
-    const indexes = reverse ? [2, 1, 0] : [0, 1, 2];
-    return indexes.map(index => {
-      const absolute = start + index;
-      return sticker(absolute, state, standard, undefined, stage === 4 && state[absolute] !== 'U');
-    }).join('');
-  };
-  if (stage === 3) return `<span class="net-grid simple-icon">${top}</span>`;
-  return `<span class="pattern-icon">
-    <span class="strip-b">${strip('B', true)}</span><span class="strip-l">${strip('L')}</span>
-    <span class="net-grid">${top}</span><span class="strip-r">${strip('R', true)}</span><span class="strip-f">${strip('F')}</span>
-  </span>`;
+  artCache.set(id, html);
+  return html;
 }
 
-function renderCases() {
-  const stage = run.stage;
-  $('case-section').hidden = stage < 0 || run.mode === 'exact';
-  if ($('case-section').hidden) return;
-  const { name, cases } = lessons[stage];
-  $('case-stage').textContent = name;
-  const cards = Object.entries(cases).filter(([key]) => key in examples[stage]).map(([key, [label]]) => {
-    const state = examples[stage][key];
-    const card = button('', 'case-card');
-    card.setAttribute('aria-pressed', String(run.key === key && run.mode === 'example'));
-    card.innerHTML = `<span class="case-art" aria-hidden="true">${caseArt(stage, state, inspectCube(state))}</span><span>${label}</span>`;
+function formula(key) {
+  return `<div class="formula-card"><div class="formula-name">${algNames[key]}</div><div class="chips">${ALGS[key].map(move => `<span class="chip">${chip(move)}</span>`).join('')}</div></div>`;
+}
+
+function renderPanel() {
+  const lesson = lessons[shownStage];
+  const algs = lesson.alg ? [lesson.alg].flat() : [];
+  $('panel').innerHTML = `
+    <div class="eyebrow">Step ${shownStage + 1} of ${lessons.length}</div>
+    <h2 id="panel-title">${lesson.name}</h2>
+    <p class="goal">${lesson.goal}</p>
+    ${algs.length ? `<div class="learn"><div class="label">Memorize</div>${algs.map(formula).join('')}${lesson.repeat ? `<p class="repeat">↻ ${lesson.repeat}</p>` : ''}</div>` : ''}
+    <p class="rule">${lesson.rule}</p>
+    <div class="label cases-label">Which one looks like yours?</div>
+    <div class="cases" id="cases"></div>
+    <p class="tip"><b>Tip</b> ${lesson.tip}</p>`;
+  const tracking = run.mode === 'practice' || run.mode === 'mine';
+  $('cases').replaceChildren(...Object.entries(lesson.cases).map(([key, [label]]) => {
+    const card = button(`<span class="art">${caseArt(shownStage, key)}</span><span class="case-name">${label}</span>`, 'case');
+    const active = run.stage === shownStage && run.key === key;
+    card.setAttribute('aria-pressed', String(active));
+    if (active && tracking) card.classList.add('yours');
     card.addEventListener('click', () => {
-      start(state);
-      $('workbench').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth' });
-      $('next-move').focus({ preventScroll: true });
+      startCase(shownStage, key);
+      if (matchMedia('(max-width: 900px)').matches) $('player').scrollIntoView({ behavior: smooth() });
     });
     return card;
-  });
-  const completed = button('Already finished this stage →', 'case-card complete-card');
-  completed.addEventListener('click', () => {
-    start(stage < lessons.length - 1 ? Object.values(examples[stage + 1])[0] : solved);
-    $('workbench').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth' });
-  });
-  $('cases').replaceChildren(...cards, completed);
+  }));
 }
 
-function describe(move) {
-  const face = faceNames[move[0]];
-  if (move.endsWith('2')) return [`Turn the ${face} layer 180°`, 'Make two quarter-turns in either direction.'];
-  const direction = move.endsWith("'") ? 'counterclockwise' : 'clockwise';
-  return [`Turn the ${face} layer ${direction}`, `Look straight at the ${face} face. Turn just that outer layer by 90°.`];
+// ---------- Player ----------
+function frameAt(index = cursor) { return run.frames[index]; }
+
+function updateModel() {
+  const { state, yaw } = frameAt();
+  const stage = showAll || run.stage < 0 ? -1 : run.stage;
+  const show = relevance(stage, state);
+  const focus = run.stage >= 0 && run.stage < 4 ? pieceLocation(state, run.target) : undefined;
+  const move = run.moves[cursor]?.move;
+  const preview = move && move[0] !== 'y' ? toAbsolute(move, yaw) : undefined;
+  if (view) {
+    if (!busy) view.setState(state, { colors: run.colors, show, focus, preview, turn: yaw });
+  } else {
+    $('fallback').innerHTML = net(state, { palette, colors: run.colors, show });
+  }
+  const front = run.colors[toAbsolute('F', yaw)];
+  $('hold').innerHTML = `${swatch(run.colors.U)} ${run.colors.U} top · ${swatch(front)} ${front} front`;
+  $('hold').title = `Hold the cube with ${run.colors.U} on top and ${front} facing you`;
 }
 
 function renderPlayer() {
-  const { stage, moves, blocks, colors, mode } = run;
-  const move = moves[cursor];
+  const { moves, blocks, stage, key, mode } = run;
+  const current = moves[cursor];
   const finished = cursor === moves.length;
-  const [title, detail] = move ? describe(move)
-    : [stage < 0 && mode !== 'notation' ? 'Cube solved' : 'Sequence complete',
-      stage >= 0 ? 'Check the result and continue when your cube matches.' : ''];
-  const modeLabel = { example: 'Case demonstration', practice: 'Practice scramble', exact: 'Your cube', notation: 'Notation practice' }[mode];
-  $('mode-label').innerHTML = `<i></i> ${modeLabel}`;
-  $('holding').innerHTML = ['U', 'F', 'R'].map(face =>
-    `<span>${swatch(colors[face])}<b>${capital(faceNames[face])}</b> ${colors[face]}</span>`).join('');
-  $('move-symbol').textContent = move ? showMove(move) : '✓';
-  $('move-title').textContent = title;
-  $('move-detail').textContent = detail;
-  updateDirectionIndicator();
-  $('face-view').disabled = !move;
-  $('previous-move').disabled = cursor === 0 || playing || busy;
-  $('next-move').disabled = finished || playing || busy;
-  $('next-move').hidden = finished && stage >= 0;
-  $('play').disabled = (finished || busy) && !playing;
-  $('play').textContent = playing ? 'Pause' : 'Play';
-  $('play').setAttribute('aria-label', playing ? 'Pause playback' : 'Play all turns');
-  $('move-count').textContent = moves.length ? `${cursor} / ${moves.length} turns` : '';
+  const lesson = lessons[stage];
+  const caseInfo = lesson?.cases[key];
+  $('case-line').innerHTML = mode === 'demo' ? '<b>Practice a turn</b>'
+    : stage === -1 ? '<b>Solved!</b> Every face is one color.'
+      : `<span class="tag">${mode === 'lesson' ? 'Example' : mode === 'mine' ? 'Your cube' : 'Scramble'}</span> <b>${lesson.name}: ${caseInfo[0]}.</b> ${caseInfo[1]}`;
+  if (current) {
+    $('now-icon').innerHTML = moveIcon(current.move);
+    $('now-move').textContent = showMove(current.move);
+    $('now-text').textContent = describeMove(current.move);
+    $('now-step').textContent = `${blocks[current.block].label} · move ${cursor + 1} of ${moves.length}`;
+  } else {
+    $('now-icon').innerHTML = '<span class="check">✓</span>';
+    $('now-move').textContent = '';
+    $('now-text').textContent = moves.length ? 'Done. Compare with your cube.' : stage === -1 ? 'Nothing left to do.' : '';
+    $('now-step').textContent = moves.length ? `${moves.length} move${moves.length === 1 ? '' : 's'}` : '';
+  }
+  $('prev').disabled = cursor === 0 || busy || playing;
+  $('next').disabled = finished || busy || playing;
+  $('play').disabled = finished && !playing;
+  $('play').innerHTML = playing ? '❚❚ Pause' : '▶ Play';
+  $('restart').disabled = cursor === 0 || busy || playing;
   let offset = 0;
-  $('formula').replaceChildren(...blocks.map(block => {
-    const group = document.createElement('span');
-    group.className = 'formula-group';
-    for (const turn of block) {
+  $('timeline').replaceChildren(...blocks.map((block, blockIndex) => {
+    const group = el('div', `block block-${block.kind}`);
+    group.append(el('div', 'block-label', block.label));
+    const row = el('div', 'chips');
+    for (const move of block.moves) {
       const index = offset++;
-      const token = button(showMove(turn), 'token', `Preview turn ${index + 1}: ${showMove(turn)}`);
+      const token = button(chip(move), 'chip', `Jump to move ${index + 1}`);
       if (index === cursor) token.setAttribute('aria-current', 'true');
       if (index < cursor) token.classList.add('done');
-      token.disabled = playing || busy;
-      token.addEventListener('click', () => {
-        cursor = index;
-        renderPlayer();
-        $('formula').querySelector('[aria-current]')?.focus();
-      });
-      group.append(token);
+      token.disabled = busy || playing;
+      token.addEventListener('click', () => { cursor = index; renderPlayer(); });
+      row.append(token);
     }
+    group.append(row);
+    if (blocks[blockIndex].moves.length && current?.block === blockIndex) group.classList.add('active');
     return group;
   }));
-  $('formula').hidden = !moves.length;
-  $('snapshots').hidden = !moves.length;
-  if ($('snapshots').open) renderSnapshots();
+  renderFinish(finished);
   updateModel();
-  renderLesson();
 }
 
-function renderSnapshots() {
-  const state = run.frames[cursor];
-  $('snapshot-content').innerHTML = `<div><h3>Current turn</h3>${net(state, run.colors, currentFocus(state))}</div>
-    <div><h3>After this sequence</h3>${net(run.frames.at(-1), run.colors, currentFocus(run.frames.at(-1)))}</div>`;
-}
-
-function renderLesson() {
-  const { stage, key, target, colors, positions, mode, frames } = run;
-  const element = $('lesson-content');
-  $('advance').hidden = stage < 0 || cursor !== run.moves.length;
-  if (stage < 0) {
-    element.innerHTML = mode === 'notation'
-      ? '<h2 id="lesson-title">Practice a turn</h2><p>Use the face view to see which way the layer moves. Open Turn notation to try another turn.</p>'
-      : '<h2 id="lesson-title">Cube solved!</h2><p>All six sides match their centers. You can start a new scramble or pick a stage to practise again.</p>';
-    return;
+function renderFinish(finished) {
+  const box = $('finish');
+  box.hidden = !finished || playing;
+  if (box.hidden) return;
+  const { mode, stage, frames } = run;
+  const end = frames.at(-1);
+  const next = currentStage(end.state);
+  const actions = [];
+  let message;
+  if (mode === 'demo') {
+    message = 'That’s one turn.';
+    actions.push(['↺ Replay', 'secondary', replay]);
+  } else if (stage === -1) {
+    message = 'Solved! 🎉';
+    actions.push(['New scramble', 'primary', scramble]);
+  } else if (mode === 'lesson') {
+    message = next !== stage ? `${lessons[stage].name} complete.` : 'That piece is done. Real solves repeat this for each piece.';
+    if (stage < lessons.length - 1) actions.push([`Next: ${lessons[stage + 1].name} →`, 'primary', () => startStage(stage + 1)]);
+    actions.push(['↺ Replay', 'secondary', replay]);
+    if (next >= 0) actions.push(['Keep solving this cube', 'secondary', () => start(end.state, end.yaw, { mode: 'practice' })]);
+  } else {
+    if (next < 0) $('steps').querySelectorAll('.step-pill').forEach(pill => { pill.classList.add('done'); pill.querySelector('b').textContent = '✓'; });
+    message = next < 0 ? 'Solved! 🎉' : next !== stage ? `${lessons[stage].name} complete!` : 'Piece done. On to the next one.';
+    if (next < 0) actions.push(['New scramble', 'primary', scramble]);
+    else actions.push([next !== stage ? `Start ${lessons[next].name} →` : 'Next piece →', 'primary', () => start(end.state, end.yaw, { mode, colors: run.colors })]);
+    actions.push(['↺ Replay', 'secondary', replay]);
   }
-  const { name, goal, tip, cases, odds } = lessons[stage];
-  const [caseName, explanation] = cases[key];
-  const targetLabel = target && [...target].map(face => swatch(colors[face]) + colors[face]).join(' <span>·</span> ');
-  const where = target && faceNames[tiles[positions[target]].face];
-  const goalFace = target && faceNames[tiles[home(target)].face];
-  const seen = target && `${capital(colors[target[0]])} starts on the ${where} face. Its home is on the ${goalFace} face.`;
-  const finished = cursor === run.moves.length;
-  const nextStage = finished ? currentStage(inspectCube(frames.at(-1))) : stage;
-  const resultText = nextStage < 0 ? 'All six faces match.' : nextStage === stage
-    ? 'This piece is in its slot. Continue to the next piece.' : 'Stage complete. Check the goal against your cube.';
-  const continueLabel = nextStage < 0 ? 'Finish solve' : nextStage === stage ? 'Next piece' : 'Next stage';
-  element.innerHTML = `<div class="section-label">Stage ${stage + 1} of ${lessons.length}</div>
-    <h2 id="lesson-title">${name}</h2><p class="goal">${goal}</p>
-    <div class="case-note"><div class="section-label">${mode === 'exact' ? 'Your case' : 'Current case'}</div><h3>${caseName}</h3><p>${explanation}</p>
-    ${target ? `<div class="target"><div>${targetLabel}</div><p>${seen} Look for the gold outline.</p><button class="text-button" id="show-target">Find this piece ↗</button></div>` : ''}
-    ${mode === 'exact' ? '' : '<a href="#case-section">See other cases ↓</a>'}</div>
-    <div class="tip"><strong>Coach’s tip</strong><p>${tip}</p>${odds ? `<details><summary>How common are the shapes?</summary><p>${odds}</p></details>` : ''}</div>
-    ${finished ? `<div class="advance"><p>${resultText}</p></div>` : ''}`;
-  $('advance').textContent = `${continueLabel} →`;
-  $('show-target')?.addEventListener('click', () => {
-    const stickerIndex = inspectCube(run.frames[cursor])[target];
-    setCamera(tiles[stickerIndex].face);
-    $('viewer').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth', block: 'nearest' });
+  box.innerHTML = `<p>${message}</p>`;
+  const row = el('div', 'actions');
+  actions.forEach(([label, style, action], index) => {
+    const control = button(label, style);
+    control.addEventListener('click', action);
+    row.append(control);
+    if (index === 0) queueMicrotask(() => { if (document.activeElement === document.body || document.activeElement?.id === 'next' || document.activeElement?.id === 'play') control.focus({ preventScroll: true }); });
   });
+  box.append(row);
+}
+
+function replay() {
+  playing = false;
+  playbackId++;
+  cursor = 0;
+  renderPlayer();
 }
 
 async function step(direction) {
-  const move = direction > 0 ? run.moves[cursor] : inverse(run.moves.slice(cursor - 1, cursor))[0];
-  if (!move || busy) return;
+  if (busy) return;
+  const forward = direction > 0;
+  const entry = run.moves[forward ? cursor : cursor - 1];
+  if (!entry) return;
+  const { yaw } = frameAt();
+  const move = forward ? entry.move : inverse([entry.move])[0];
+  const absolute = move[0] === 'y' ? move : toAbsolute(move, yaw);
   const currentSession = session;
   busy = true;
-  animatedMove = move;
   renderPlayer();
-  await view?.animate(move, reducedMotion.matches ? 0 : Number($('speed').value));
+  await view?.animate(absolute, reducedMotion.matches ? 0 : Number($('speed').value) * (move[0] === 'y' ? 1.3 : 1));
   if (currentSession !== session) return;
   cursor += direction;
   busy = false;
-  animatedMove = undefined;
   renderPlayer();
-  if (direction > 0 && !playing && cursor === run.moves.length && !$('advance').hidden && document.activeElement === document.body) {
-    $('advance').focus({ preventScroll: true });
-  }
 }
 
 async function playback() {
@@ -321,64 +281,91 @@ async function playback() {
     renderPlayer();
     return;
   }
+  if (cursor === run.moves.length) cursor = 0;
   const currentSession = session;
   const currentPlayback = ++playbackId;
   playing = true;
+  renderPlayer();
   while (playing && currentSession === session && currentPlayback === playbackId && cursor < run.moves.length) {
     await step(1);
-    if (view && !reducedMotion.matches) await new Promise(resolve => setTimeout(resolve, 95));
+    const entry = run.moves[cursor];
+    const pause = entry && run.moves[cursor - 1]?.block !== entry.block ? 420 : 90;
+    if (view && !reducedMotion.matches) await new Promise(resolve => setTimeout(resolve, pause));
   }
   if (currentSession !== session || currentPlayback !== playbackId) return;
   playing = false;
   renderPlayer();
-  if (!$('advance').hidden && document.activeElement === document.body) $('advance').focus({ preventScroll: true });
 }
 
+function scramble() {
+  const options = [...'URFDLB'].flatMap(face => [face, face + "'", face + '2']);
+  const moves = [];
+  while (moves.length < 22) {
+    const option = options[Math.floor(Math.random() * options.length)];
+    if (moves.at(-1)?.[0] !== option[0]) moves.push(option);
+  }
+  start(applyMoves(solved, moves), 0, { mode: 'practice' });
+  $('player').scrollIntoView({ behavior: smooth(), block: 'nearest' });
+}
+
+// ---------- Notation dialog ----------
+const notationMoves = ['U', "U'", 'R', "R'", 'F', "F'", 'L', "L'", 'D', "D'", 'B', "B'", 'U2', 'R2', 'y', "y'"];
+$('notation-grid').replaceChildren(...notationMoves.map(move => {
+  const tile = button(`${moveIcon(move)}<b>${showMove(move)}</b><span>${describeMove(move)}</span>`, 'notation-tile');
+  tile.addEventListener('click', () => {
+    $('notation').close();
+    start(solved, 0, { mode: 'demo', demo: [move] });
+    $('player').scrollIntoView({ behavior: smooth(), block: 'nearest' });
+    step(1);
+  });
+  return tile;
+}));
+
+// ---------- Sticker editor ----------
+const faceOrder = [...'FRBLUD'];
+const faceNames = { U: 'top', R: 'right', F: 'front', D: 'bottom', L: 'left', B: 'back' };
+let editorFace = 'F';
+let selectedColor = 'green';
+let editorStickers = emptyEditor();
 function emptyEditor() {
   const state = Array(54).fill('');
   state[4] = 'yellow';
   state[31] = 'white';
   return state;
 }
-
 const directions = {
-  F: 'Look straight at your original front. Keep the yellow center above it.',
-  R: 'Look straight at the original right. Keep yellow up. The original front is now on your left.',
-  B: 'Look straight at the face opposite your original front. Keep yellow up.',
-  L: 'Look straight at the original left. Keep yellow up. The original front is now on your right.',
-  U: 'Look directly at yellow from above. The edge shared with your original front goes in the bottom row.',
-  D: 'Look directly at white from below. The edge shared with your original front goes in the top row.',
+  F: 'Yellow on top. Look straight at the side you chose as front.',
+  R: 'Turn the whole cube left so the right side faces you. Yellow stays on top.',
+  B: 'Turn once more. Yellow stays on top.',
+  L: 'Turn once more. Yellow stays on top.',
+  U: 'Back to the original front, then tip the cube toward you to see the top. Front edge at the bottom.',
+  D: 'Back to the original front, then tip the cube away to see the bottom. Front edge at the top.',
 };
-
 function renderEditor() {
   const offset = faces.indexOf(editorFace) * 9;
-  $('paint-title').textContent = `${editorFace} · ${capital(faceNames[editorFace])} face`;
+  $('paint-title').textContent = `${capital(faceNames[editorFace])} face`;
   $('paint-hint').textContent = directions[editorFace];
   $('editor-faces').replaceChildren(...faceOrder.map(face => {
     const start = faces.indexOf(face) * 9;
-    const faceColors = editorStickers.slice(start, start + 9);
-    const label = faceColors.every(Boolean) ? `${face} ✓` : face;
-    const choice = button(label, 'secondary small', `Enter the ${faceNames[face]} face`);
+    const complete = editorStickers.slice(start, start + 9).every(Boolean);
+    const choice = button(`${capital(faceNames[face])}${complete ? ' ✓' : ''}`, 'secondary small');
     choice.setAttribute('aria-pressed', String(face === editorFace));
     choice.addEventListener('click', () => setEditorFace(face));
     return choice;
   }));
   $('palette').replaceChildren(...Object.entries(palette).map(([name, color]) => {
-    const choice = button(capital(name), 'color-choice');
+    const choice = button('', 'color-choice', capital(name));
+    choice.setAttribute('aria-label', capital(name));
     choice.style.setProperty('--color', color);
     choice.setAttribute('aria-pressed', String(selectedColor === name));
-    choice.addEventListener('click', () => {
-      selectedColor = name;
-      renderEditor();
-      $('palette').querySelector('[aria-pressed="true"]').focus();
-    });
+    choice.addEventListener('click', () => { selectedColor = name; renderEditor(); });
     return choice;
   }));
   $('paint-grid').replaceChildren(...Array.from({ length: 9 }, (_, index) => {
     const color = editorStickers[offset + index];
-    const cell = button(index === 4 ? editorFace : '', 'paint-tile');
+    const cell = button('', 'paint-tile');
     cell.style.setProperty('--tile', palette[color] || '#24352e');
-    cell.setAttribute('aria-label', `${faceNames[editorFace]} row ${Math.floor(index / 3) + 1}, column ${index % 3 + 1}, ${color || 'empty'}`);
+    cell.setAttribute('aria-label', `Row ${Math.floor(index / 3) + 1}, column ${index % 3 + 1}, ${color || 'empty'}`);
     cell.disabled = index === 4 && (editorFace === 'U' || editorFace === 'D');
     cell.addEventListener('click', () => {
       editorStickers[offset + index] = selectedColor;
@@ -388,98 +375,64 @@ function renderEditor() {
     });
     return cell;
   }));
-  $('color-count').textContent = `${editorStickers.filter(Boolean).length} of 54 stickers filled · ${capital(selectedColor)}: ${editorStickers.filter(color => color === selectedColor).length}/9`;
-  $('next-face').disabled = editorFace === 'D';
+  $('color-count').textContent = `${editorStickers.filter(Boolean).length} of 54 filled`;
+  $('next-face').hidden = editorFace === 'D';
 }
-
 function setEditorFace(face) {
   editorFace = face;
   $('editor-status').textContent = '';
   renderEditor();
-  $('editor-faces').querySelector('[aria-pressed="true"]').focus();
 }
-
 function useColors() {
   try {
-    if (editorStickers.some(color => !color)) throw new Error('Fill in all six faces first, including the side centers.');
+    if (editorStickers.some(color => !color)) throw new Error('Fill in all six faces first.');
     const colors = Object.fromEntries([...faces].map((face, index) => [face, editorStickers[index * 9 + 4]]));
-    if (new Set(Object.values(colors)).size !== 6) throw new Error('Use a different color for each of the six center stickers.');
+    if (new Set(Object.values(colors)).size !== 6) throw new Error('Each of the six centers needs a different color.');
     const byColor = Object.fromEntries(Object.entries(colors).map(([face, color]) => [color, face]));
     const state = editorStickers.map(color => byColor[color]).join('');
-    start(state, { colors, mode: 'exact' });
+    inspectCube(state);
+    start(state, 0, { mode: 'mine', colors });
     $('editor').close();
-    $('workbench').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth' });
-    ($('next-move').disabled ? $('practice') : $('next-move')).focus({ preventScroll: true });
+    $('player').scrollIntoView({ behavior: smooth(), block: 'nearest' });
   } catch (error) {
     $('editor-status').textContent = error.message;
   }
 }
 
+// ---------- Wiring ----------
 $('open-notation').addEventListener('click', () => $('notation').showModal());
-$('notation-demos').addEventListener('click', event => {
-  const move = event.target.closest('[data-turn]')?.dataset.turn;
-  if (!move) return;
-  $('notation').close();
-  start(solved, { mode: 'notation', demoTurns: [move] });
-  setCamera(move[0]);
-  $('workbench').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth' });
-  $('next-move').focus({ preventScroll: true });
-  step(1);
-});
-$('practice').addEventListener('click', () => {
-  if (run.mode !== 'example') start(firstExample);
-  if (run.stage < 0) start(firstExample);
-  $('case-section').scrollIntoView({ behavior: reducedMotion.matches ? 'instant' : 'smooth' });
-  $('cases').querySelector('button')?.focus({ preventScroll: true });
-});
-$('new-scramble').addEventListener('click', () => {
-  const moves = [];
-  while (moves.length < 23) {
-    const option = generators[0][Math.floor(Math.random() * generators[0].length)].moves[0];
-    if (moves.at(-1)?.[0] !== option[0]) moves.push(option);
-  }
-  start(applyMoves(solved, moves), { mode: 'practice' });
-  $('next-move').focus({ preventScroll: true });
-});
-$('orbit').addEventListener('click', () => setCamera());
-$('face-view').addEventListener('click', () => setCamera(run.moves[cursor][0]));
-$('canvas').addEventListener('orbit-drag', () => { cameraFace = ''; updateCameraButtons(); });
-$('cameras').replaceChildren(...[...'UFRLBD'].map(face => {
-  const control = button(face, '', `View the ${faceNames[face]} face`);
-  control.setAttribute('aria-label', control.title);
-  control.addEventListener('click', () => setCamera(face));
-  return control;
-}));
-$('previous-move').addEventListener('click', () => step(-1));
-$('next-move').addEventListener('click', () => step(1));
-$('play').addEventListener('click', playback);
-$('advance').addEventListener('click', () => {
-  start(run.frames.at(-1), { mode: run.mode, colors: run.colors });
-  ($('next-move').disabled ? $('practice') : $('next-move')).focus({ preventScroll: true });
-});
-$('snapshots').addEventListener('toggle', () => { if ($('snapshots').open) renderSnapshots(); });
+$('start-lesson').addEventListener('click', () => { startStage(0); $('player').scrollIntoView({ behavior: smooth() }); });
+$('scramble').addEventListener('click', scramble);
 $('open-editor').addEventListener('click', () => { renderEditor(); $('editor').showModal(); });
-$('clear-editor').addEventListener('click', () => {
-  editorStickers = emptyEditor();
-  setEditorFace('F');
-});
+$('resume').addEventListener('click', () => start(ownSolve.state, ownSolve.yaw, { mode: ownSolve.mode, colors: ownSolve.colors }));
+$('reset-view').addEventListener('click', () => view?.view());
+$('show-all').addEventListener('change', event => { showAll = event.target.checked; updateModel(); });
+$('prev').addEventListener('click', () => step(-1));
+$('next').addEventListener('click', () => step(1));
+$('play').addEventListener('click', playback);
+$('restart').addEventListener('click', replay);
+$('clear-editor').addEventListener('click', () => { editorStickers = emptyEditor(); setEditorFace('F'); });
 $('load-example').addEventListener('click', () => {
-  editorStickers = [...examples[3].el].map(face => standard[face]);
+  editorStickers = [...examples[3].right[0]].map(face => standard[face]);
   setEditorFace('F');
 });
 $('next-face').addEventListener('click', () => setEditorFace(faceOrder[faceOrder.indexOf(editorFace) + 1]));
 $('solve-input').addEventListener('click', useColors);
+document.addEventListener('keydown', event => {
+  if (document.querySelector('dialog[open]') || event.target.closest('input, select, textarea')) return;
+  if (event.key === 'ArrowRight') { event.preventDefault(); step(1); }
+  if (event.key === 'ArrowLeft') { event.preventDefault(); step(-1); }
+  if (event.key === ' ' && !event.target.closest('button')) { event.preventDefault(); playback(); }
+});
 
-start(firstExample);
+startStage(0);
 import('./viewer.mjs').then(({ createViewer }) => {
   view = createViewer($('canvas'));
-  view.view(cameraFace);
   $('fallback').hidden = true;
   updateModel();
 }).catch(() => {
   $('canvas').hidden = true;
   $('fallback').hidden = false;
-  $('drag-hint').textContent = '2D view · choose a face';
-  $('orbit').textContent = 'Show all faces';
+  $('drag-hint').textContent = 'Flat view';
   updateModel();
 });

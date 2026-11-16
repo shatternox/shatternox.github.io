@@ -1,5 +1,5 @@
 import * as THREE from '../assets/vendor/three/three.module.min.js';
-import { faces, normals, tiles, turnSpec } from './cube.mjs';
+import { tiles, turnSpec } from './cube.mjs';
 import { palette } from './lessons.mjs';
 
 const vector = array => new THREE.Vector3(...array);
@@ -51,7 +51,7 @@ export function createViewer(container) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.04;
   const surface = renderer.domElement;
-  surface.setAttribute('aria-label', '3D Rubik’s Cube. Drag to orbit, or use the face-view buttons.');
+  surface.setAttribute('aria-label', '3D Rubik’s Cube. Drag to look around it.');
   surface.setAttribute('role', 'img');
   container.append(surface);
 
@@ -73,23 +73,12 @@ export function createViewer(container) {
   const focusBody = new THREE.MeshStandardMaterial({
     color: 0x77582c, emissive: 0xce9c3f, emissiveIntensity: .33, roughness: .36,
   });
-  const centers = [...faces].map(face => {
-    const label = document.createElement('canvas');
-    label.width = label.height = 96;
-    const context = label.getContext('2d');
-    context.fillStyle = '#111a20';
-    context.font = '700 51px monospace';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText(face, 48, 51);
-    const map = new THREE.CanvasTexture(label);
-    return new THREE.MeshBasicMaterial({ map, transparent: true, depthWrite: false });
-  });
   const materials = Object.fromEntries(Object.entries(palette).map(([name, color]) => [
     name, new THREE.MeshStandardMaterial({
       color, roughness: .38, metalness: .04, emissive: color, emissiveIntensity: .12,
     }),
   ]));
+  const grey = new THREE.MeshStandardMaterial({ color: 0x56605b, roughness: .6, metalness: .02 });
   const cubies = [];
   const stickers = [];
   for (let x = -1; x <= 1; x++) {
@@ -111,17 +100,13 @@ export function createViewer(container) {
           sticker.quaternion.setFromUnitVectors(forward, normal);
           group.add(sticker);
           stickers[index] = sticker;
-          if (index % 9 === 4) {
-            const mark = new THREE.Mesh(new THREE.PlaneGeometry(.35, .35), centers[faces.indexOf(tile.face)]);
-            mark.position.z = .032;
-            sticker.add(mark);
-          }
         });
       }
     }
   }
 
   let animation = 0;
+  let yaw = 0;
   let settle;
   let pose = defaultView.clone();
   let up = new THREE.Vector3(0, 1, 0);
@@ -133,6 +118,7 @@ export function createViewer(container) {
     renderer.render(scene, camera);
   }
   function resetModels() {
+    model.rotation.set(0, -yaw * Math.PI / 2, 0);
     for (const cubie of cubies) {
       model.add(cubie.group);
       cubie.group.position.fromArray(cubie.position);
@@ -142,17 +128,18 @@ export function createViewer(container) {
       if (!cubies.some(cubie => cubie.group === child)) model.remove(child);
     }
   }
-  function setState(state, colors, focus, preview) {
+  function setState(state, { colors, show, focus, preview, turn = 0 }) {
     cancelAnimationFrame(animation);
     settle?.();
     settle = undefined;
+    yaw = turn;
     resetModels();
-    const spec = preview && turnSpec(preview);
+    const spec = preview && preview[0] !== 'y' && turnSpec(preview);
     cubies.forEach(({ position, plastic }) => {
       plastic.material = focus && focus.every((value, axis) => value === position[axis]) ? focusBody
         : spec && position[spec.axis] === spec.side ? activeBody : body;
     });
-    stickers.forEach((sticker, index) => { sticker.material = materials[colors[state[index]]]; });
+    stickers.forEach((sticker, index) => { sticker.material = show[index] ? materials[colors[state[index]]] : grey; });
     draw();
   }
 
@@ -171,11 +158,9 @@ export function createViewer(container) {
   };
   new ResizeObserver(resize).observe(container);
 
-  function view(face = '') {
-    pose = face ? vector(normals[face]).multiplyScalar(12) : defaultView.clone();
+  function view() {
+    pose = defaultView.clone();
     up.set(0, 1, 0);
-    if (face === 'U') up.set(0, 0, -1);
-    if (face === 'D') up.set(0, 0, 1);
     draw();
   }
 
@@ -207,11 +192,12 @@ export function createViewer(container) {
     setState,
     animate(move, duration) {
       if (!duration) return Promise.resolve();
-      const { axis, side, quarters } = turnSpec(move);
+      const whole = move[0] === 'y';
+      const { axis, side, quarters } = turnSpec(whole ? 'U' + move.slice(1) : move);
       const pivot = new THREE.Group();
       model.add(pivot);
       for (const cubie of cubies) {
-        if (cubie.position[axis] === side) {
+        if (whole || cubie.position[axis] === side) {
           cubie.plastic.material = activeBody;
           pivot.add(cubie.group);
         }
