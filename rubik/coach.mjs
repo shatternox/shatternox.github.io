@@ -1,13 +1,13 @@
 // The coach: takes someone who has never solved a cube from "pick it up" to
 // solved, one move at a time, on their own cube.
-import { solved, applyMoves, showMove, inverse } from './cube.mjs?v=202611161352';
-import { planNext, play, currentStage, ALGS } from './method.mjs?v=202611161352';
-import { standard, lessons, algNames } from './lessons.mjs?v=202611161352';
-import { moveIcon, describeMove } from './art.mjs?v=202611161352';
-import { createCubeInput } from './scan.mjs?v=202611161352';
-import { sfx } from './sfx.mjs?v=202611161352';
-import { getMethod } from './methods.mjs?v=202611161352';
-import { thumb, goalThumb, movesText } from './map.mjs?v=202611161352';
+import { solved, applyMoves, showMove, inverse } from './cube.mjs?v=202611161406';
+import { planNext, play, currentStage, ALGS } from './method.mjs?v=202611161406';
+import { standard, lessons, algNames } from './lessons.mjs?v=202611161406';
+import { moveIcon, describeMove } from './art.mjs?v=202611161406';
+import { createCubeInput } from './scan.mjs?v=202611161406';
+import { sfx } from './sfx.mjs?v=202611161406';
+import { getMethod } from './methods.mjs?v=202611161406';
+import { thumb, goalThumb, movesText } from './map.mjs?v=202611161406';
 
 const keyFor = id => (id === 'beginner' ? 'rubik-coach-v1' : `rubik-coach-v1-${id}`);
 const introMoves = ['R', "R'", 'U', "U'"];
@@ -310,7 +310,7 @@ export function createCoach(root, cube, methodId = 'beginner') {
     let view = narrow(step, path);
     // Skip levels with only one choice, and small sets that fit on screen.
     while (view.labels.length === 1) { path = [...path, view.labels[0]]; view = narrow(step, path); }
-    const showGroups = view.labels.length > 1 && view.cases.length > 8;
+    const showGroups = view.labels.length > 1 && (view.cases.length > 8 || view.labels.some(l => /^(Yes|No):/.test(l)));
     cube.reset();
     cube.show({ state: step.goal, yaw: 0 }, { colors: standard, mask: step.mask(step.goal), hold: 'The goal of this step (not your cube)' });
     const crumbs = path.length ? `<div class="crumbs"><button class="crumb" data-path="0">All</button>${path.map((p, i) => ` › <button class="crumb" data-path="${i + 1}">${p}</button>`).join('')}</div>` : '';
@@ -323,7 +323,7 @@ export function createCoach(root, cube, methodId = 'beginner') {
     card(`
       ${stepBar(stage)}
       <div class="eyebrow">${method.name} · step ${stage + 1} · ${step.name}${s.rounds ? ` · round ${s.rounds + 1}` : ''}</div>
-      <h2>${showGroups ? 'What do you see?' : 'Which one looks like yours?'}</h2>
+      <h2>${showGroups ? (step.questions?.[path.length] ?? 'What do you see?') : 'Which one looks like yours?'}</h2>
       <p class="look"><span>👀 Look</span>${step.look}</p>
       ${crumbs}
       <div class="pick">

@@ -4,11 +4,11 @@
 //
 // A situation "matches" when, after the hold/turn the case tells you to do
 // (turn the top, turn the whole cube, …), it looks like the case's picture.
-import { solved, pieces, applyMoves, tiles } from './cube.mjs?v=202611161352';
-import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161352';
-import { SETS, goodEdge } from './verify.mjs?v=202611161352';
-import * as A from './algs.mjs?v=202611161352';
-import { getMethod, methodList } from './methods.mjs?v=202611161352';
+import { solved, pieces, applyMoves, tiles } from './cube.mjs?v=202611161406';
+import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161406';
+import { SETS, goodEdge } from './verify.mjs?v=202611161406';
+import * as A from './algs.mjs?v=202611161406';
+import { getMethod, methodList } from './methods.mjs?v=202611161406';
 
 const EDGE_SLOTS = Object.keys(pieces).filter(n => n.length === 2);
 const CORNER_SLOTS = Object.keys(pieces).filter(n => n.length === 3);
@@ -319,7 +319,7 @@ for (const { id } of methodList) {
   report('beginner', 'Middle layer', possible, covered, mm);
 
   // Last layer: the beginner planner's own case names must all have pictures.
-  const { planNext } = await import('./method.mjs?v=202611161352');
+  const { planNext } = await import('./method.mjs?v=202611161406');
   ll ??= llStates();
   for (const stage of [4, 5, 6, 7]) {
     const keys = new Set(b.steps[stage].cases.map(c => c.key));
@@ -333,6 +333,56 @@ for (const { id } of methodList) {
     }
     report('beginner', b.steps[stage].name, n, n - [...miss].length, [...miss]);
   }
+}
+
+// ---------- Beginner: each picture must look like its answer ----------
+// "Is there a white corner / an edge without yellow on top?" Every picture
+// under "No" must really show none on top, and under "Yes" at least one.
+{
+  const b = getMethod('beginner');
+  const hasColor = (st, slot, c) => pieces[slot].some(i => st[i] === c);
+  const checks = [
+    { stage: 2, name: 'White corners: pictures match the question', usable: st => ['UFR', 'URB', 'UBL', 'ULF'].some(c => hasColor(st, c, 'D')) },
+    { stage: 3, name: 'Middle layer: pictures match the question', usable: st => ['UF', 'UR', 'UB', 'UL'].some(e => !hasColor(st, e, 'U')) },
+  ];
+  for (const { stage, name, usable } of checks) {
+    const step = b.steps[stage];
+    const wrong = step.cases.filter(c => c.group[0]?.startsWith('Yes') !== usable(c.start.state)).map(c => c.label);
+    const yes = step.cases.filter(c => c.group[0]?.startsWith('Yes')).length;
+    const no = step.cases.filter(c => c.group[0]?.startsWith('No')).length;
+    const missing = [...wrong, ...(yes ? [] : ['no “Yes” pictures']), ...(no ? [] : ['no “No” pictures'])];
+    report('beginner', name, step.cases.length, step.cases.length - wrong.length, missing);
+  }
+  // Every middle-layer situation with nothing usable on top (all four
+  // non-yellow edges in the middle layer, at least one wrong) must have a
+  // "No" picture for some wrong slot held at the front-right.
+  const MID = ['FR', 'BR', 'BL', 'FL'];
+  const noPics = new Set(A.STUCK.EDGE_STUCK.map(c => `${c.piece === 'FR' ? 'own' : 'wrong'}-${c.at.at(-1)}`));
+  const perms = arr => (arr.length <= 1 ? [arr] : arr.flatMap((x, i) => perms([...arr.slice(0, i), ...arr.slice(i + 1)]).map(p => [x, ...p])));
+  let possible = 0; let covered = 0; const missing = [];
+  for (const p of perms([0, 1, 2, 3])) for (let flips = 0; flips < 16; flips++) {
+    const slots = MID.map((_, i) => ({ piece: MID[p[i]], slot: MID[i], flip: (flips >> i) & 1 }));
+    const wrongSlots = slots.filter(x => x.piece !== x.slot || x.flip);
+    if (!wrongSlots.length) continue;
+    possible++;
+    // Hold any wrong slot at the front-right: own piece flipped, or a wrong piece either way.
+    const ok = wrongSlots.some(x => noPics.has(`${x.piece === x.slot ? 'own' : 'wrong'}-${x.flip}`));
+    if (ok) covered++; else missing.push(slots.map(x => `${x.piece}${x.flip ? '*' : ''}@${x.slot}`).join(' '));
+  }
+  report('beginner', 'Middle layer: nothing on top', possible, covered, missing);
+  // Same for corners: all four white corners in the bottom, at least one wrong.
+  const DC = ['DRF', 'DBR', 'DLB', 'DFL'];
+  const cornerPics = new Set(A.STUCK.CORNER_STUCK.map(c => `${c.piece === 'DRF' ? 'own' : 'wrong'}-${c.at.at(-1)}`));
+  possible = 0; covered = 0; const cmiss = [];
+  for (const p of perms([0, 1, 2, 3])) for (let tw = 0; tw < 81; tw++) {
+    const slots = DC.map((_, i) => ({ piece: DC[p[i]], slot: DC[i], twist: Math.floor(tw / 3 ** i) % 3 }));
+    const wrong = slots.filter(x => x.piece !== x.slot || x.twist);
+    if (!wrong.length) continue;
+    possible++;
+    if (wrong.some(x => cornerPics.has(`${x.piece === x.slot ? 'own' : 'wrong'}-${x.twist}`))) covered++;
+    else cmiss.push(slots.map(x => `${x.piece}/${x.twist}@${x.slot}`).join(' '));
+  }
+  report('beginner', 'White corners: nothing on top', possible, covered, cmiss);
 }
 
 // ---------- Roux LSE ----------

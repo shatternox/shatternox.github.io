@@ -2,16 +2,16 @@
 // The beginner method comes from tree.mjs; CFOP is built from the verified
 // algorithm sets in algs.mjs. Case pictures are generated from the
 // algorithms themselves, so a picture and its moves can never disagree.
-import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161352';
-import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161352';
-import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161352';
-import { lessons, algNames } from './lessons.mjs?v=202611161352';
-import { tree, goalState } from './tree.mjs?v=202611161352';
+import { solved, applyMoves, pieces, tiles } from './cube.mjs?v=202611161406';
+import { run, parse, invert, IDENTITY } from './moves.mjs?v=202611161406';
+import { relevance, pieceLocation, ALGS } from './method.mjs?v=202611161406';
+import { lessons, algNames } from './lessons.mjs?v=202611161406';
+import { tree, goalState } from './tree.mjs?v=202611161406';
 import {
   OLL, PLL, F2L, CROSS, CMLL, LSE_EO, LSE_ULUR, LSE_L4E, EDGE_DL, EDGE_DB, SB_EDGE, SB_PAIR, SB_BACK, FB_PAIR, FB_BACK,
   ZZ_EO, ZZ_LINE, ZZ_EDGE, RU_PAIR, RU_BACK, PETRUS_BL, PETRUS_DF, PETRUS_FL, PETRUS_EO, STUCK, EO_BRING,
-} from './algs.mjs?v=202611161352';
-import { goodEdge } from './verify.mjs?v=202611161352';
+} from './algs.mjs?v=202611161406';
+import { goodEdge } from './verify.mjs?v=202611161406';
 
 const SIDE_WORDS = { F: 'front', R: 'right', B: 'back', L: 'left' };
 const U = k => [[], ['U'], ['U2'], ["U'"]][((k % 4) + 4) % 4];
@@ -607,6 +607,11 @@ function petrusSteps() {
   }, ollStep(['21', '22', '23', '24', '25', '26', '27']), pllStep()];
 }
 
+// Steps where you first check the top layer, then the stuck pieces.
+const TOP_GROUP = {
+  2: { yes: 'Yes: a white corner is on top', no: 'No: no white corner on top (one is stuck in the bottom)' },
+  3: { yes: 'Yes: a top edge has no yellow', no: 'No: every top edge has yellow (an edge is stuck in the middle)' },
+};
 // Beginner situations that share moves but look different get a picture each.
 function beginnerExtras(stage) {
   if (stage === 0) {
@@ -621,20 +626,20 @@ function beginnerExtras(stage) {
   if (stage === 2) {
     return stuckCases('b2', null, STUCK.CORNER_STUCK, {
       moves: "R U R' U'",
-      hint: 'A white corner is in the bottom layer but wrong: twisted in its own spot, or in another corner’s spot. Turn the whole cube so it is at the bottom front-right, like the picture. Do R U R′ U′ once: it comes up to the top. Then look again and insert it like the other top cases.',
+      hint: 'No corner on top has white, so a white corner is stuck in the bottom layer: twisted in its own spot, or in another corner’s spot. Turn the whole cube so it is at the bottom front-right, like the picture. Do R U R′ U′ once: it comes up to the top. Then look again and insert it like the other top cases.',
     }).map((c, i) => {
       const { piece, at } = STUCK.CORNER_STUCK[i];
       const { what } = stuckWords(piece, at);
-      return { ...c, group: [], label: piece === 'DRF' ? `Corner in its own spot but twisted (${what})` : `Wrong corner in this spot (${what})` };
+      return { ...c, group: [TOP_GROUP[2].no], label: piece === 'DRF' ? `Corner in its own spot but twisted (${what})` : `Wrong corner in this spot (${what})` };
     });
   }
   if (stage === 3) {
     return stuckCases('b3', null, STUCK.EDGE_STUCK, {
       moves: "U R U' R' U' F' U F",
-      hint: 'A middle-layer edge is in the wrong slot, or in its own slot but flipped. Turn the whole cube so that slot is at the front-right, like the picture. Do the right insert once (U R U′ R′ U′ F′ U F): it pops the edge up to the top. Then look again and insert it properly.',
+      hint: 'Every top edge has yellow, so the edge you need is stuck in the middle layer: in a wrong slot, or flipped in its own slot. Find a middle slot whose colors don’t match its two centers. Turn the whole cube so that slot is at the front-right, like the picture. Do the right insert once (U R U′ R′ U′ F′ U F): it pops the edge up to the top. Then look again: now there is an edge on top with no yellow.',
     }).map((c, i) => {
       const { piece, at } = STUCK.EDGE_STUCK[i];
-      return { ...c, group: [], label: piece === 'FR' ? 'Edge in its own slot but flipped' : `Wrong edge in this slot (colors ${at.endsWith('0') ? 'one way' : 'the other way'})` };
+      return { ...c, group: [TOP_GROUP[3].no], label: piece === 'FR' ? 'Edge in its own slot but flipped' : `Wrong edge in this slot (colors ${at.endsWith('0') ? 'one way' : 'the other way'})` };
     });
   }
   return [];
@@ -651,7 +656,7 @@ function beginnerSteps() {
       memo: algs.map(key => ({ name: algNames[key], moves: ALGS[key] })),
       cases: [
         ...step.cases.filter(c => !(c.key === 'stuck' && (stage === 2 || stage === 3)))
-          .map(c => ({ ...c, group: [], focus: c.target ? s => [pieceLocation(s, c.target)] : undefined })),
+          .map(c => ({ ...c, group: TOP_GROUP[stage] ? [TOP_GROUP[stage].yes] : [], focus: c.target ? s => [pieceLocation(s, c.target)] : undefined })),
         ...beginnerExtras(stage),
       ],
     };
@@ -699,6 +704,8 @@ const QUESTIONS = {
   'lse-eo': ['How many bad edges are there?', 'Then, which one?'],
   'lse-lr': ['Where are the left and right edges (the ones that belong at UL and UR)?', 'Then, which one?'],
   'zz-line': ['Where is the line edge?', 'Then, which one?'],
+  b2: ['Is there a corner with white in the top layer?', 'Then, which one?'],
+  b3: ['Is there an edge in the top layer with no yellow on it?', 'Then, which one?'],
 };
 export function getMethod(id) {
   const key = DEFINITIONS[id] ? id : 'beginner';

@@ -1,11 +1,11 @@
 // The solving map: for every step, where to look, every case you can see,
 // and the moves for it, already held the right way. Pure data plus drawings,
 // shared by the coach and the map view.
-import { solved, applyMoves, tokens, inverse, tiles, inspectCube } from './cube.mjs?v=202611161352';
-import { planNext, play, relevance, pieceLocation, currentStage, WHITE_EDGES } from './method.mjs?v=202611161352';
-import { lessons, standard, palette } from './lessons.mjs?v=202611161352';
-import { examples } from './examples.mjs?v=202611161352';
-import { isoCube, topView } from './art.mjs?v=202611161352';
+import { solved, applyMoves, tokens, inverse, tiles, inspectCube } from './cube.mjs?v=202611161406';
+import { planNext, play, relevance, pieceLocation, currentStage, WHITE_EDGES } from './method.mjs?v=202611161406';
+import { lessons, standard, palette } from './lessons.mjs?v=202611161406';
+import { examples } from './examples.mjs?v=202611161406';
+import { isoCube, topView } from './art.mjs?v=202611161406';
 
 // A cube with a finished daisy: every white edge on top, white facing up.
 const daisy = applyMoves(solved, tokens('F2 R2 B2 L2'));
@@ -14,8 +14,8 @@ const fromGoal = (goal, moves) => applyMoves(goal, inverse(tokens(moves)));
 const LOOK = [
   'Find a white edge (white + one other color) that isn’t a petal yet. Turn the whole cube so its white faces you, or keep it as is if white faces the floor. Where is it?',
   'Look at the white petals on top. Check each petal’s other color against the center below it.',
-  'Find a corner with white in the top layer. Turn the top until it sits above its spot, and hold that spot at the front-right.',
-  'Find a top edge with no yellow. Turn the top until its front color matches the center below, and face it.',
+  'Find a corner with white in the top layer. Turn the top until it sits above its spot, and hold that spot at the front-right. No white on any top corner? Then one is stuck in the bottom layer (twisted, or in the wrong spot): hold it at the bottom front-right.',
+  'Find a top edge with no yellow. Turn the top until its front color matches the center below, and face it. Yellow on all 4 top edges? Then an edge is stuck in the middle layer (wrong slot, or flipped): find a middle slot whose colors don’t match its centers and hold it at the front-right.',
   'Look at the top only. How many yellow edges touch the yellow center?',
   'Count the yellow corners facing up, then look at where the other yellow stickers point.',
   'Look at the two top corners of each side. Same color on both = headlights.',
