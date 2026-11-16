@@ -1,9 +1,10 @@
 import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs';
-import { planNext, play, toAbsolute, relevance, pieceLocation, ALGS, currentStage } from './method.mjs';
+import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs';
 import { palette, standard, lessons, algNames } from './lessons.mjs';
 import { examples } from './examples.mjs';
 import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs';
 import { createGuide } from './guide.mjs';
+import { orientFromYaw, modelFace } from './moves.mjs';
 import { createCoach } from './coach.mjs';
 import { sfx, confetti } from './sfx.mjs';
 import { music } from './music.mjs';
@@ -31,28 +32,36 @@ function button(html, className = '', title) {
 let view;
 const guide = createGuide($('canvas'));
 const centersOnly = Array.from({ length: 54 }, (_, i) => i % 9 === 4);
-const speed = () => Number($('speed').value);
+let speedValue = 450;
+const speed = () => speedValue;
+for (const option of document.querySelectorAll('[data-speed]')) {
+  option.addEventListener('click', () => {
+    speedValue = Number(option.dataset.speed);
+    for (const other of document.querySelectorAll('[data-speed]')) other.setAttribute('aria-checked', String(other === option));
+  });
+}
 const cube = {
   shown: undefined,
   show(frame, { colors = standard, all, centers, mask, stage = -1, target, move } = {}) {
     cube.shown = { frame, colors };
     const show = mask ?? (centers ? centersOnly : relevance(all ? -1 : stage, frame.state));
     const focus = target && stage >= 0 && stage < 4 ? pieceLocation(frame.state, target) : undefined;
-    const preview = move && (move[0] === 'y' ? move : toAbsolute(move, frame.yaw));
+    const orient = frame.orient ?? orientFromYaw(frame.yaw ?? 0);
     guide.setMove(move);
-    if (view) view.setState(frame.state, { colors, show, focus, preview, turn: frame.yaw });
+    if (view) view.setState(frame.state, { colors, show, focus, preview: move, orient });
     else $('fallback').innerHTML = net(frame.state, { palette, colors, show });
-    const front = colors[toAbsolute('F', frame.yaw)];
-    $('hold').innerHTML = `${swatch(colors.U)} ${colors.U} top · ${swatch(front)} ${front} front`;
-    $('hold').title = `Hold the cube with ${colors.U} on top and ${front} facing you`;
+    const top = colors[modelFace('U', orient)];
+    const front = colors[modelFace('F', orient)];
+    $('hold').innerHTML = `${swatch(top)} ${top} top · ${swatch(front)} ${front} front`;
+    $('hold').title = `Hold the cube with ${top} on top and ${front} facing you`;
   },
-  async animate(move, yaw) {
-    const whole = move[0] === 'y';
+  async animate(move) {
+    const whole = 'xyz'.includes(move[0]);
     const duration = reducedMotion.matches ? 0 : speed() * (whole ? 1.3 : 1) * (move.endsWith('2') ? 1.25 : 1);
     if (whole) sfx.whoosh(duration / 1000 || 0.3);
     else sfx.turn(duration / 1000 || 0.1);
     guide.setMove(move);
-    await view?.animate(whole ? move : toAbsolute(move, yaw), duration);
+    await view?.animate(move, duration);
   },
   look(face) { view?.view(face); },
   reset() { if (view?.turned) view.view(); },

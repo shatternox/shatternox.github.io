@@ -1,5 +1,6 @@
 import * as THREE from '../assets/vendor/three/three.module.min.js';
-import { tiles, turnSpec } from './cube.mjs';
+import { tiles } from './cube.mjs';
+import { spec, IDENTITY } from './moves.mjs';
 import { createHands } from './hands.mjs';
 import { palette } from './lessons.mjs';
 
@@ -107,7 +108,14 @@ export function createViewer(container) {
   }
 
   let animation = 0;
-  let yaw = 0;
+  let orient = IDENTITY;
+  const AXIS = { x: 0, y: 1, z: 2 };
+  // Model-space position → where it shows in the solver's view.
+  const toWorld = position => orient.map(row => row[0] * position[0] + row[1] * position[1] + row[2] * position[2]);
+  const moving = (move, position) => {
+    const { axis, layers } = spec(move);
+    return layers.includes(toWorld(position)[AXIS[axis]]);
+  };
   let settle;
   let pose = defaultView.clone();
   let up = new THREE.Vector3(0, 1, 0);
@@ -126,20 +134,20 @@ export function createViewer(container) {
     renderer.render(scene, camera);
     container.dispatchEvent(new CustomEvent('cube-draw'));
   }
-  // Which hand makes a move, and the axis it turns about (solver's frame).
+  // Which hand makes a move, and the axis it turns about (solver's view).
   function handFor(move) {
-    const whole = move[0] === 'y';
-    const { axis, side, quarters } = turnSpec(whole ? 'U' + move.slice(1) : move);
-    const turn = new THREE.Vector3(0, 1, 0);
-    const worldAxis = new THREE.Vector3().setComponent(axis, 1).applyAxisAngle(turn, -yaw * Math.PI / 2).round();
-    const normal = worldAxis.clone().multiplyScalar(side);
-    const face = whole ? 'y' : normal.x > .5 ? 'R' : normal.x < -.5 ? 'L' : normal.y > .5 ? 'U' : normal.y < -.5 ? 'D' : normal.z > .5 ? 'F' : 'B';
-    const prime = quarters === -1;
-    const hand = face === 'y' ? 'both' : face === 'L' ? 'left' : face === 'U' ? (prime ? 'left' : 'right')
-      : face === 'D' ? (prime ? 'right' : 'left') : 'right';
+    const { axis, quarters } = spec(move);
+    const face = move[0];
+    const prime = quarters < 0;
+    const both = 'xyzES'.includes(face);
+    const hand = both ? 'both'
+      : face === 'L' || face === 'l' ? 'left'
+        : face === 'U' || face === 'u' ? (move.endsWith("'") ? 'left' : 'right')
+          : face === 'D' || face === 'd' ? (move.endsWith("'") ? 'right' : 'left') : 'right';
     // Gripping hands ride the layer; pushing hands only nudge.
-    const ratio = face === 'R' || face === 'L' || face === 'y' ? 1 : 0.32;
-    return { hand, axis: worldAxis, angle: -side * quarters * Math.PI / 2, ratio };
+    const ratio = 'RLrlxyz'.includes(face) ? 1 : 0.32;
+    const worldAxis = new THREE.Vector3().setComponent(AXIS[axis], 1);
+    return { hand, axis: worldAxis, angle: -quarters * Math.PI / 2, ratio, prime };
   }
 
   // Arrow that wraps around the turning layer, hugging the faces you can see.
@@ -147,23 +155,19 @@ export function createViewer(container) {
   const arrowEdge = new THREE.MeshBasicMaterial({ color: 0x1a2a20 });
   let arrow;
   function buildArrow(move) {
-    const whole = move[0] === 'y';
-    const { axis, side, quarters } = turnSpec(whole ? 'U' + move.slice(1) : move);
-    const axisVector = new THREE.Vector3().setComponent(axis, 1);
-    const sign = Math.sign(-side * quarters);
-    const turn = new THREE.Vector3(0, 1, 0);
-    const seen = [[0, 1, 0], [0, 0, 1], [1, 0, 0]]
-      .map(w => new THREE.Vector3(...w).applyAxisAngle(turn, yaw * Math.PI / 2))
-      .filter(v => Math.abs(v.dot(axisVector)) < .5);
+    const { axis, layers, quarters } = spec(move);
+    const axisVector = new THREE.Vector3().setComponent(AXIS[axis], 1);
+    const sign = Math.sign(-quarters);
+    const seen = [[0, 1, 0], [0, 0, 1], [1, 0, 0]].map(w => new THREE.Vector3(...w)).filter(v => Math.abs(v.dot(axisVector)) < .5);
     const center = seen[0].clone().add(seen[1]).normalize();
-    const offset = whole ? 0 : side;
+    const whole = layers.length === 3;
+    const offset = whole ? 0 : layers.reduce((a, b) => a + b, 0) / layers.length;
     const sweep = (Math.abs(quarters) === 2 ? 150 : 96) * Math.PI / 180;
     const base = whole ? 1.95 : 1.6;
     const points = [];
     for (let i = 0; i <= 40; i++) {
       const angle = sign * (-sweep / 2 + sweep * i / 40);
       const direction = center.clone().applyAxisAngle(axisVector, angle);
-      // Find the in-plane angle from the first visible face to round the square outline.
       const a = direction.dot(seen[0]);
       const b = direction.dot(seen[1]);
       const radius = base * (Math.abs(a) ** 12 + Math.abs(b) ** 12) ** (-1 / 12);
@@ -186,7 +190,12 @@ export function createViewer(container) {
     return group;
   }
   function resetModels() {
-    model.rotation.set(0, -yaw * Math.PI / 2, 0);
+    const basis = new THREE.Matrix4().set(
+      orient[0][0], orient[0][1], orient[0][2], 0,
+      orient[1][0], orient[1][1], orient[1][2], 0,
+      orient[2][0], orient[2][1], orient[2][2], 0,
+      0, 0, 0, 1);
+    model.quaternion.setFromRotationMatrix(basis);
     for (const cubie of cubies) {
       model.add(cubie.group);
       cubie.group.position.fromArray(cubie.position);
@@ -195,20 +204,26 @@ export function createViewer(container) {
     for (const child of [...model.children]) {
       if (!cubies.some(cubie => cubie.group === child)) model.remove(child);
     }
+    if (arrow) scene.remove(arrow);
+    arrow = undefined;
   }
-  function setState(state, { colors, show, focus, preview, turn = 0 }) {
+  // `preview` is the next move in the solver's view; `orient` is the cube's
+  // orientation (see moves.mjs).
+  function setState(state, { colors, show, focus, preview, orient: nextOrient = IDENTITY }) {
     cancelAnimationFrame(animation);
     settle?.();
     settle = undefined;
-    yaw = turn;
+    orient = nextOrient;
     resetModels();
-    const spec = preview && preview[0] !== 'y' && turnSpec(preview);
-    arrow = preview ? buildArrow(preview) : undefined;
+    if (preview) {
+      arrow = buildArrow(preview);
+      scene.add(arrow);
+    }
     hands.setActive(preview ? handFor(preview).hand : '');
-    if (arrow) model.add(arrow);
+    const turning = preview && spec(preview).layers.length < 3;
     cubies.forEach(({ position, plastic }) => {
       plastic.material = focus && focus.every((value, axis) => value === position[axis]) ? focusBody
-        : spec && position[spec.axis] === spec.side ? activeBody : body;
+        : turning && moving(preview, position) ? activeBody : body;
     });
     stickers.forEach((sticker, index) => { sticker.material = show[index] ? materials[colors[state[index]]] : grey; });
     draw();
@@ -312,27 +327,29 @@ export function createViewer(container) {
     },
     animate(move, duration) {
       if (!duration) return Promise.resolve();
-      const whole = move[0] === 'y';
-      const { axis, side, quarters } = turnSpec(whole ? 'U' + move.slice(1) : move);
-      if (arrow) model.remove(arrow);
+      const { axis, quarters } = spec(move);
+      if (arrow) { scene.remove(arrow); arrow = undefined; }
       const grip = handFor(move);
       hands.setActive(grip.hand);
       const pivot = new THREE.Group();
       model.add(pivot);
       for (const cubie of cubies) {
-        if (whole || cubie.position[axis] === side) {
+        if (moving(move, cubie.position)) {
           cubie.plastic.material = activeBody;
           pivot.add(cubie.group);
         }
       }
+      // Turn about the solver's axis, expressed in the model's own axes.
+      const worldAxis = [0, 0, 0];
+      worldAxis[AXIS[axis]] = 1;
+      const modelAxis = new THREE.Vector3(...[0, 1, 2].map(i => orient[0][i] * worldAxis[0] + orient[1][i] * worldAxis[1] + orient[2][i] * worldAxis[2]));
       const started = performance.now();
-      const axes = ['x', 'y', 'z'];
       return new Promise(resolve => {
         settle = resolve;
         const frame = now => {
           const time = Math.min(1, (now - started) / duration);
           const ease = time * time * (3 - 2 * time);
-          pivot.rotation[axes[axis]] = -side * quarters * Math.PI / 2 * ease;
+          pivot.quaternion.setFromAxisAngle(modelAxis, -quarters * Math.PI / 2 * ease);
           motion = ease;
           hands.hold(grip.hand, grip.axis, grip.angle * grip.ratio * ease);
           draw();

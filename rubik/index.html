@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="rubik.css">
+  <link rel="stylesheet" href="rubik.css?v=20261116">
   <script type="module" src="app.mjs"></script>
   <title>Solve a Rubik’s Cube | Ardian Danny</title>
 </head>
@@ -72,7 +72,7 @@
             <div class="fallback" id="fallback" hidden></div>
             <div class="view-bottom">
               <span id="drag-hint">Drag to look around</span>
-              <span class="toggles"><label class="toggle"><input type="checkbox" id="show-hands" checked> Hands</label><label class="toggle learn-only"><input type="checkbox" id="show-all"> All colors</label></span>
+              <span class="toggles"><label class="toggle"><input type="checkbox" role="switch" id="show-hands" checked><span class="switch" aria-hidden="true"></span> Hands</label><label class="toggle learn-only"><input type="checkbox" role="switch" id="show-all"><span class="switch" aria-hidden="true"></span> All colors</label></span>
             </div>
           </div>
           <div class="learn-only">
@@ -92,7 +92,7 @@
                 <button id="prev" class="button icon" aria-label="Previous move" title="Previous move (←)">←</button>
                 <button id="play" class="button play">▶ Play</button>
                 <button id="next" class="button primary next" title="Next move (→)">Next →</button>
-                <label class="speed">Speed <select id="speed"><option value="800">Slow</option><option value="450" selected>Normal</option><option value="230">Fast</option></select></label>
+                <div class="segmented" id="speed" role="radiogroup" aria-label="Speed"><button type="button" role="radio" data-speed="800" aria-checked="false">Slow</button><button type="button" role="radio" data-speed="450" aria-checked="true">Normal</button><button type="button" role="radio" data-speed="230" aria-checked="false">Fast</button></div>
               </div>
               <div class="controls try-only"><button id="hint" class="button">💡 Hint</button></div>
             </div>
