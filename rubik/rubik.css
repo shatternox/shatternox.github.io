@@ -401,17 +401,16 @@ body[data-mode="map"] .workbench, body[data-mode="map"] .learn-only, body[data-m
 .map-node p { margin-top: 6px; color: var(--muted); font-size: .86rem; }
 .map-step.now .map-num { border-color: var(--acid); background: var(--acid); color: var(--dark); }
 .map-step.done .map-num { border-color: #2f5a40; color: var(--acid); }
-.map-branches { position: relative; list-style: none; margin: 0; padding: 0 0 0 22px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; border-left: 2px solid #2f5a40; }
+.map-branches { position: relative; list-style: none; margin: 0; padding: 0 0 0 22px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 12px; border-left: 2px solid #2f5a40; }
 .map-branches > li { position: relative; }
 .map-branches > li::before { content: ''; position: absolute; left: -24px; top: 34px; width: 22px; border-top: 2px solid #2f5a40; }
 .map-branches > li:not(:first-child)::before { content: none; }
-.map-case, .map-exit { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); text-align: center; }
+.map-exit { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 10px 8px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); text-align: center; }
+.map-case { width: 100%; height: 100%; display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .map-case { transition: border-color .15s, transform .15s; }
-.map-case:hover { border-color: var(--acid); transform: translateY(-2px); }
+.map-case:hover { border-color: #2f5a40; }
 .map-case.here { border-color: var(--gold); box-shadow: 0 0 0 2px #f3d36b33; }
-.map-label { font-size: .8rem; font-weight: 600; line-height: 1.25; }
-.map-case code { font: .64rem/1.35 var(--mono); color: var(--gold); }
-.map-loop { margin-top: auto; color: var(--muted); font: .62rem var(--mono); letter-spacing: .04em; }
+.map-label { margin: 0; font: 600 1.05rem/1.25 var(--display); letter-spacing: -.01em; }
 .map-exit { border-style: dashed; border-color: #2f5a40; }
 .map-exit span:last-child { display: grid; gap: 2px; font-size: .78rem; }
 .map-exit b { color: var(--acid); }
@@ -419,9 +418,11 @@ body[data-mode="map"] .workbench, body[data-mode="map"] .learn-only, body[data-m
 .map-thumb svg { display: block; width: 64px; height: 64px; }
 .map-thumb .iso { width: 60px; height: 66px; }
 @media (max-width: 760px) {
-  .map-step { grid-template-columns: 1fr; gap: 12px; }
+  .map-step { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .map-node { position: static; }
-  .map-branches { grid-template-columns: repeat(2, 1fr); padding-left: 14px; }
+  .map-branches { grid-template-columns: minmax(0, 1fr); padding-left: 14px; }
+  .mc-head { grid-template-columns: 88px minmax(0, 1fr); }
+  .mc-head .map-thumb svg { width: 88px; }
   .map-branches > li::before { left: -16px; width: 14px; }
   .pick { grid-template-columns: repeat(2, 1fr); }
 }
@@ -492,3 +493,24 @@ body:not([data-method="beginner"]) .beginner-only { display: none !important; }
   .player-pos { order: -1; width: 100%; margin-left: 0; }
 }
 .logo-twirl { width: 100%; height: 100%; transform-style: preserve-3d; }
+
+/* Map case cards: picture + perspective, how to hold, the whole formula, hands */
+.mc-head { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; }
+.mc-head .map-thumb svg { width: 112px; height: auto; }
+.mc-view { margin: 6px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.4; }
+.view-tag { fill: #b8cdc1; font: 700 9px var(--mono); letter-spacing: .04em; }
+.mc-steps { margin: 0; padding: 0; list-style: none; counter-reset: mc; display: grid; gap: 10px; }
+.mc-steps li { counter-increment: mc; display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 8px; row-gap: 4px; font-size: .86rem; }
+.mc-steps li::before { content: counter(mc); grid-row: 1 / span 4; display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid var(--acid); border-radius: 50%; color: var(--acid); font: 600 .7rem var(--mono); }
+.mc-steps b { color: var(--ink); font-size: .84rem; }
+.mc-steps span { color: var(--muted); line-height: 1.45; }
+.mc-formula { display: block; padding: 8px 10px; border: 1px solid #2f5a40; border-radius: var(--radius); background: #0e1c15; color: var(--ink); font: 600 1rem/1.4 var(--mono); word-spacing: .12em; overflow-wrap: anywhere; }
+.mc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.mc-group { display: inline-flex; flex-wrap: wrap; align-items: flex-end; gap: 3px; padding: 3px; border: 1px dashed var(--line); border-radius: var(--radius); }
+.mc-move { display: inline-flex; flex-direction: column; align-items: center; min-width: 30px; color: var(--ink); }
+.mc-move .move-icon { width: 24px; height: 24px; }
+.mc-move b { font: 500 .66rem var(--mono); }
+.mc-move small { color: var(--acid); font: .58rem var(--mono); }
+.mc-times { align-self: center; padding: 0 4px; color: var(--gold); font: 600 .8rem var(--mono); }
+.mc-legend { color: var(--muted); font: .62rem var(--mono); }
+.mc-open { align-self: flex-start; margin-top: auto; min-height: 40px; }

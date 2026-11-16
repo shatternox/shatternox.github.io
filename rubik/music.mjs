@@ -135,7 +135,8 @@ function remember(on) {
 
 export const music = {
   get playing() { return playing; },
-  get wanted() { try { return localStorage.getItem('rubik-music') === '1'; } catch { return false; } },
+  // On by default; off only if the visitor turned it off.
+  get wanted() { try { return localStorage.getItem('rubik-music') !== '0'; } catch { return true; } },
   start() {
     if (playing) return;
     if (!context && !setup()) return;

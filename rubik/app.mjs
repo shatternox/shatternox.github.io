@@ -1,15 +1,15 @@
-import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs?v=202611161630';
-import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs?v=202611161630';
-import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161630';
-import { examples } from './examples.mjs?v=202611161630';
-import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs?v=202611161630';
-import { createGuide } from './guide.mjs?v=202611161630';
-import { orientFromYaw, modelFace } from './moves.mjs?v=202611161630';
-import { createCoach } from './coach.mjs?v=202611161630';
-import { sfx } from './sfx.mjs?v=202611161630';
-import { music } from './music.mjs?v=202611161630';
-import { renderMap } from './map.mjs?v=202611161630';
-import { methodList, getMethod } from './methods.mjs?v=202611161630';
+import { solved, tiles, showMove, inverse, applyMoves, tokens } from './cube.mjs?v=202611161730';
+import { planNext, play, relevance, pieceLocation, ALGS, currentStage } from './method.mjs?v=202611161730';
+import { palette, standard, lessons, algNames } from './lessons.mjs?v=202611161730';
+import { examples } from './examples.mjs?v=202611161730';
+import { moveIcon, describeMove, isoCube, topView, net } from './art.mjs?v=202611161730';
+import { createGuide } from './guide.mjs?v=202611161730';
+import { orientFromYaw, modelFace } from './moves.mjs?v=202611161730';
+import { createCoach } from './coach.mjs?v=202611161730';
+import { sfx } from './sfx.mjs?v=202611161730';
+import { music } from './music.mjs?v=202611161730';
+import { renderMap } from './map.mjs?v=202611161730';
+import { methodList, getMethod } from './methods.mjs?v=202611161730';
 
 const $ = id => document.getElementById(id);
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -553,8 +553,20 @@ function updateMusic() {
   $('music').textContent = music.playing ? '♫ Music on' : '♫ Music';
 }
 $('music').addEventListener('click', () => { music.toggle(); updateMusic(); });
-// Browsers only allow sound after a tap, so resume music on the first one.
-if (music.wanted) document.addEventListener('pointerdown', () => { music.start(); updateMusic(); }, { once: true });
+// Music is on by default, but browsers only allow sound after the first tap
+// or key press, so it starts then. A first tap on the music button itself is
+// left to that button.
+if (music.wanted) {
+  const begin = event => {
+    document.removeEventListener('pointerdown', begin, true);
+    document.removeEventListener('keydown', begin, true);
+    if (event.target.closest?.('#music')) return;
+    music.start();
+    updateMusic();
+  };
+  document.addEventListener('pointerdown', begin, true);
+  document.addEventListener('keydown', begin, true);
+}
 updateMusic();
 $('open-notation').addEventListener('click', () => $('notation').showModal());
 $('reset-view').addEventListener('click', () => view?.view());
@@ -597,7 +609,7 @@ function buildLogo() {
 buildLogo();
 
 setMode(location.hash === '#learn' ? 'learn' : location.hash === '#map' ? 'map' : 'coach', false);
-import('./viewer.mjs?v=202611161630').then(({ createViewer }) => {
+import('./viewer.mjs?v=202611161730').then(({ createViewer }) => {
   view = createViewer($('canvas'));
   guide.attach(view);
   $('fallback').hidden = true;

@@ -1,6 +1,6 @@
 // Small SVG drawings: move icons, case thumbnails.
-import { faces } from './cube.mjs?v=202611161630';
-import { toAbsolute } from './method.mjs?v=202611161630';
+import { faces } from './cube.mjs?v=202611161730';
+import { toAbsolute } from './method.mjs?v=202611161730';
 
 const GREY = '#4a554f';
 
@@ -84,6 +84,16 @@ const WORDS = {
   y: ['Spin the whole cube: the right side comes to the front', 'Spin the whole cube: the left side comes to the front'],
   z: ['Turn the whole cube clockwise, like a steering wheel', 'Turn the whole cube counterclockwise, like a steering wheel'],
 };
+// Which hand turns a move, for the short tag under a move chip.
+export function moveHand(move) {
+  const face = move[0];
+  const prime = move.endsWith("'");
+  if ('Rrx'.includes(face)) return 'R';
+  if ('LlM'.includes(face)) return 'L';
+  if ('Uu'.includes(face) || 'FfS'.includes(face)) return prime ? 'L' : 'R';
+  if ('DdE'.includes(face)) return prime ? 'R' : 'L';
+  return 'both';
+}
 export function describeMove(move) {
   const twice = move.endsWith('2');
   const prime = move.endsWith("'");
@@ -106,7 +116,7 @@ function topOrder(yaw) {
 const faceStart = face => faces.indexOf(face) * 9;
 
 // Isometric view of the top, front and right faces.
-export function isoCube(state, { palette, colors, show, yaw = 0, focus = [] }) {
+export function isoCube(state, { palette, colors, show, yaw = 0, focus = [], labels }) {
   const s = 15;
   const ox = 52, oy = 8;
   const top = (r, c) => [ox + (c - r) * s * .866, oy + (c + r) * s * .5];
@@ -137,11 +147,15 @@ export function isoCube(state, { palette, colors, show, yaw = 0, focus = [] }) {
     const pts = [a, [a[0] + s * .866, a[1] - s * .5], [a[0] + s * .866, a[1] + s * .5], [a[0], a[1] + s]];
     out.push(quad(shrink(pts), color(palette, colors, state, show, index), mark(index) + ' opacity=".78"'));
   }
-  return `<svg class="iso" viewBox="0 0 104 112" aria-hidden="true">${out.join('')}</svg>`;
+  if (labels) {
+    const tag = (x, text) => `<text x="${x}" y="114" text-anchor="middle" class="view-tag">${text}</text>`;
+    out.push(tag(30, labels.left), tag(76, labels.right));
+  }
+  return `<svg class="iso" viewBox="0 0 104 ${labels ? 120 : 112}" aria-hidden="true">${out.join('')}</svg>`;
 }
 
 // Top view with the top row of each side around it — how the last layer is read.
-export function topView(state, { palette, colors, show, yaw = 0 }) {
+export function topView(state, { palette, colors, show, yaw = 0, labels }) {
   const cell = 16, gap = 2, off = 13;
   const out = [];
   const order = topOrder(yaw);
@@ -163,7 +177,8 @@ export function topView(state, { palette, colors, show, yaw = 0 }) {
     }
   };
   for (const face of 'FRBL') strip(face, face);
-  return `<svg class="topview" viewBox="0 0 80 80" aria-hidden="true">${out.join('')}</svg>`;
+  if (labels) out.push(`<text x="40" y="91" text-anchor="middle" class="view-tag">▼ ${labels.bottom}</text>`);
+  return `<svg class="topview" viewBox="0 0 80 ${labels ? 94 : 80}" aria-hidden="true">${out.join('')}</svg>`;
 }
 
 // Flat net used when WebGL is unavailable.
